@@ -1,4 +1,5 @@
-import { HrStateWrapper, getKey } from '../HrStateWrapper';
+import { HrStateWrapper } from '../HrStateWrapper';
+import { getKey } from '../types';
 
 describe(`HrStateWrapper basic`, () => {
   it(`doesn't error`, () => {

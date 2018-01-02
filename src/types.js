@@ -1,5 +1,10 @@
 // @flow
 
+export function getKey(key: ?string) {
+  if (!key) return '[[default]]';
+  return key;
+}
+
 export type HrStateDesc<T> = {
   loading: boolean,
   hasError: boolean,

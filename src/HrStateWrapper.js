@@ -45,11 +45,6 @@ type HrStateWrapperOp = {
   data: any,
 }
 
-export function getKey(key: ?string) {
-  if (!key) return '[[default]]';
-  return key;
-}
-
 export class HrStateWrapper {
   state: t.HrState
   ops: Array<HrStateWrapperOp>
@@ -79,7 +74,7 @@ export class HrStateWrapper {
     if (!Array.isArray(pairs)) {
       throw new Error(`HrStateWrapper::setIdPairs expected the second argument to be an array but got ${pairs}`);
     }
-    this.ops.push({ type: 'setIds', key: getKey(key), data: pairs });
+    this.ops.push({ type: 'setIds', key: t.getKey(key), data: pairs });
     return this;
   }
 
@@ -94,7 +89,7 @@ export class HrStateWrapper {
       throw new Error(`HrStateWrapper::setById expects args (key: ?string, id: string, value: any) but received ${arguments.length} args`);
     }
     this.computedState = null;
-    this.ops.push({ type: 'updateIdDesc', key: getKey(key), id, data: { value } });
+    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value } });
     return this;
   }
 
@@ -109,7 +104,7 @@ export class HrStateWrapper {
     this.computedState = null;
     this.ops.push({
       type: 'updateIdDesc',
-      key: getKey(key),
+      key: t.getKey(key),
       id,
       data: {
         hasError: !!error,
@@ -129,7 +124,7 @@ export class HrStateWrapper {
     if (!Array.isArray(items)) {
       throw new Error(`HrStateWrapper::setList expected the second argument to be an array but got ${items}`);
     }
-    this.ops.push({ type: 'setList', key: getKey(key), data: items });
+    this.ops.push({ type: 'setList', key: t.getKey(key), data: items });
   }
 
   /*
@@ -141,7 +136,7 @@ export class HrStateWrapper {
   setKvKey(key: ?string, id: string, value: any) {
     this.computedState = null;
 
-    this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: { value } });
+    this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: { value } });
     return this;
   }
 
@@ -154,7 +149,7 @@ export class HrStateWrapper {
   setKvMetaKey(key: ?string, id: string, value: $Shape<t.HrStateDesc<any>>) {
     this.computedState = null;
 
-    this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: value });
+    this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: value });
     return this;
   }
 
@@ -183,7 +178,7 @@ export class HrStateWrapper {
     for (let i = 0; i < ops.length; i += 1) {
       const op = ops[i];
 
-      const key = getKey(op.key);
+      const key = t.getKey(op.key);
 
       if (op.type === 'setIds') {
         if (!cloned.id) {
