@@ -20,3 +20,25 @@ describe(`HrQuery byId`, () => {
     });
   });
 });
+
+describe(`HrQuery list`, () => {
+  it(`list`, () => {
+    const q = new HrQuery(hrStateFixture().getState());
+    const l = q.list();
+    expect(l).toBeInstanceOf(Array);
+    expect(l.length).toBe(IDS.length);
+    expect(l[0]).toBe(IDS[0]);
+  });
+
+  it(`propsFromList`, () => {
+    const q = new HrQuery(hrStateFixture().getState());
+    const v = q.propsFromList('foo');
+    expect(v).toEqual({
+      foo: IDS,
+      fooError: null,
+      fooHasError: false,
+      fooLoading: false,
+      fooMeta: {}
+    });
+  });
+});

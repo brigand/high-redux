@@ -54,14 +54,59 @@ export default class HrQuery {
   }
 
   /*
-    Get the state descriptor for the given id. Mostly for internal use
+    Get the default list. Always returns an array, but it may be empty
+  */
+  list() {
+    return this.listKey(t.getKey(null));
+  }
+  listKey(key: string) {
+    const obj = this._assertHr(`list`);
+    return obj.lists[key] && obj.lists[key].value || [];
+  }
+
+  /*
+    Get props for the list state. See the propsById docs for an example
+    of how this works.
+  */
+  propsFromList(name: ?string = null) {
+    return this.propsFromListKey(t.getKey(null), name);
+  }
+  propsFromListKey(key: string, _name: ?string = null) {
+    const name = _name || 'data';
+
+    const desc = this.descListKey(key);
+    if (!desc) return {};
+
+    return {
+      [name]: desc.value,
+      [`${name}Error`]: desc.error,
+      [`${name}HasError`]: desc.hasError,
+      [`${name}Loading`]: desc.loading,
+      [`${name}Meta`]: desc.userMeta || {},
+    };
+  }
+
+  /*
+    Get the state descriptor for the given id. Mostly for internal use.
   */
   descById(id: string) {
     return this.descByIdKey(t.getKey(null), id);
   }
   descByIdKey(key: string, id: string) {
-    const obj = this._assertHr(`getById`);
+    const obj = this._assertHr(`descByIdKey`);
     const desc = obj.byId[key][id];
+    return desc || null;
+  }
+
+  /*
+    Get the state descriptor for the list. Mostly for internal use.
+  */
+  descList() {
+    return this.descListKey(t.getKey(null));
+  }
+  descListKey(key: string) {
+    const obj = this._assertHr(`descListKey`);
+    const desc = obj.lists[key];
     return desc || null;
   }
 
