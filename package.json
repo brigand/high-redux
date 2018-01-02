@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "test": "jest",
+    "build": "babel src --out-dir lib --ignore __tests__"
+  },
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
@@ -9,5 +13,11 @@
     "jest": "^22.0.4",
     "react": "^16.2.0",
     "react-dom": "^16.2.0"
-  }
+  },
+  "name": "high-redux",
+  "version": "0.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:brigand/high-redux.git",
+  "author": "Frankie Bagnardi <f.bagnardi@gmail.com>",
+  "license": "MIT"
 }
