@@ -1,11 +1,23 @@
 // @flow
-import { HrStateWrapper } from './HrStateWrapper'
+import { HrStateWrapper, makeDefaultHrState } from './HrStateWrapper'
 export * from './HrStateWrapper';
+export * from './types';
+
+export type HighReducerRes = (state: ?Object, action: Object) => Object;
+
+export type ActionHandler = (s: HrStateWrapper, payload: Object) => HrStateWrapper;
+
+export type Opts = {
+  name?: string,
+  list?: boolean,
+  byId?: boolean,
+  actions: {[actionName: string]: ActionHandler},
+}
 
 export function makeHighReducer(opts: Opts): HighReducerRes {
   const { name, actions } = opts;
 
-  function reducer(_state: ?Object, action: Object) {
+  function reducer(_state: ?Object, action: Object): Object {
     const state = _state || makeDefaultHrState();
 
     const handler = actions[action.type];

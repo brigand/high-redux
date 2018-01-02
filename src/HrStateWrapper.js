@@ -1,42 +1,9 @@
 // @flow
-
+import * as t from './types';
 
 // eslint-disable-next-line
-export type ActionHandler = (s: HrStateWrapper, payload: Object) => HrStateWrapper;
 
-export type HighReducerRes = (state: Object, action: Object) => Object;
-
-export type Opts = {
-  name?: string,
-  list?: boolean,
-  byId?: boolean,
-  actions: {[actionName: string]: ActionHandler},
-}
-
-type HrStateDesc<T> = {
-  loading: boolean,
-  hasError: boolean,
-  error: ?any,
-  value: T,
-  loadingStartTime: number,
-  loadingCompleteTime: number,
-  userMeta: Object,
-}
-
-type HrStateById = { [type: string]: { [id: string]: HrStateDesc<any> } };
-type HrStateList = { [type: string]: HrStateDesc<Array<any>> };
-type HrStateKv = { [type: string]: { [id: string]: HrStateDesc<any> } };
-
-type HrState = {
-  isHrState: true,
-  byId: HrStateById,
-  lists: HrStateList,
-  kv: HrStateKv,
-  // TODO: implement this in some way
-  // receipts: { [key: string]: any },
-}
-
-function makeDefaultHrState(): HrState {
+export function makeDefaultHrState(): t.HrState {
   return {
     isHrState: true,
     byId: {},
@@ -45,7 +12,7 @@ function makeDefaultHrState(): HrState {
   };
 }
 
-function makeHrStateDesc<T>(value: T, properties: ?$Shape<HrStateDesc<T>>): HrStateDesc<T> {
+export function makeHrStateDesc<T>(value: T, properties: ?$Shape<t.HrStateDesc<T>>): t.HrStateDesc<T> {
   return {
     loading: false,
     hasError: false,
@@ -70,7 +37,7 @@ type HrStateWrapperOp = {
   type: 'updateIdDesc',
   key: string,
   id: string,
-  data: $Shape<HrStateDesc<any>>,
+  data: $Shape<t.HrStateDesc<any>>,
 } | {
   type: 'setKvMeta',
   key: string,
@@ -84,16 +51,16 @@ export function getKey(key: ?string) {
 }
 
 export class HrStateWrapper {
-  state: HrState
+  state: t.HrState
   ops: Array<HrStateWrapperOp>
 
   // In case getState is called twice without any ops being pushed
-  computedState: ?HrState;
+  computedState: ?t.HrState;
 
   /*
     Creates a HrStateWrapper instance. This is typically done for you.
   */
-  constructor(state: HrState) {
+  constructor(state: ?t.HrState) {
     this.state = state || makeDefaultHrState();
     this.computedState = null;
 
@@ -157,7 +124,7 @@ export class HrStateWrapper {
     this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: { value } });
   }
 
-  setKvMeta(key: ?string, id: string, value: $Shape<HrStateDesc<any>>) {
+  setKvMeta(key: ?string, id: string, value: $Shape<t.HrStateDesc<any>>) {
     this.computedState = null;
 
     this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: value });
@@ -166,7 +133,7 @@ export class HrStateWrapper {
   /*
     Compute the state by applying all update operations. Mostly for internal use.
   */
-  getState() {
+  getState(): Object {
     const { ops } = this;
     if (!ops.length) return this.state;
     this.ops = [];
