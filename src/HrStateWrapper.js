@@ -1,0 +1,264 @@
+// @flow
+
+
+// eslint-disable-next-line
+export type ActionHandler = (s: HrStateWrapper, payload: Object) => HrStateWrapper;
+
+export type HighReducerRes = (state: Object, action: Object) => Object;
+
+export type Opts = {
+  name?: string,
+  list?: boolean,
+  byId?: boolean,
+  actions: {[actionName: string]: ActionHandler},
+}
+
+type HrStateDesc<T> = {
+  loading: boolean,
+  hasError: boolean,
+  error: ?any,
+  value: T,
+  loadingStartTime: number,
+  loadingCompleteTime: number,
+  userMeta: Object,
+}
+
+type HrStateById = { [type: string]: { [id: string]: HrStateDesc<any> } };
+type HrStateList = { [type: string]: HrStateDesc<Array<any>> };
+type HrStateKv = { [type: string]: { [id: string]: HrStateDesc<any> } };
+
+type HrState = {
+  isHrState: true,
+  byId: HrStateById,
+  lists: HrStateList,
+  kv: HrStateKv,
+  // TODO: implement this in some way
+  // receipts: { [key: string]: any },
+}
+
+function makeDefaultHrState(): HrState {
+  return {
+    isHrState: true,
+    byId: {},
+    lists: {},
+    kv: {},
+  };
+}
+
+function makeHrStateDesc<T>(value: T, properties: ?$Shape<HrStateDesc<T>>): HrStateDesc<T> {
+  return {
+    loading: false,
+    hasError: false,
+    error: null,
+    value,
+    loadingStartTime: 0,
+    loadingCompleteTime: 0,
+    userMeta: {},
+    ...properties,
+  };
+}
+
+type HrStateWrapperOp = {
+  type: 'setIds',
+  key: string,
+  data: Array<[string, any]>,
+} | {
+  type: 'setList',
+  key: string,
+  data: Array<any>,
+} | {
+  type: 'updateIdDesc',
+  key: string,
+  id: string,
+  data: $Shape<HrStateDesc<any>>,
+} | {
+  type: 'setKvMeta',
+  key: string,
+  id: string,
+  data: any,
+}
+
+export function getKey(key: ?string) {
+  if (!key) return '[[default]]';
+  return key;
+}
+
+export class HrStateWrapper {
+  state: HrState
+  ops: Array<HrStateWrapperOp>
+
+  // In case getState is called twice without any ops being pushed
+  computedState: ?HrState;
+
+  /*
+    Creates a HrStateWrapper instance. This is typically done for you.
+  */
+  constructor(state: HrState) {
+    this.state = state || makeDefaultHrState();
+    this.computedState = null;
+
+    this.ops = [];
+  }
+
+  /*
+    For each item in 'pairs', map the first item in the pair (the id) to the
+    second item (the value). More efficient than `setById` for lists.
+  */
+  setIdPairs(key: ?string, pairs: Array<[string, any]>) {
+    this.computedState = null;
+    if (!Array.isArray(pairs)) {
+      throw new Error(`HrStateWrapper::setIdPairs expected the second argument to be an array but got ${pairs}`);
+    }
+    this.ops.push({ type: 'setIds', key: getKey(key), data: pairs });
+  }
+
+  /*
+    Store a mapping of the id to the value.
+  */
+  setById(key: ?string, id: string, value: any) {
+    if (arguments.length < 3) {
+      throw new Error(`HrStateWrapper::setById expects args (key: ?string, id: string, value: any) but received ${arguments.length} args`);
+    }
+    this.computedState = null;
+    this.ops.push({ type: 'updateIdDesc', key: getKey(key), id, data: { value } });
+  }
+
+  /*
+    Set the error value for an id to the argument. Even if the error value is
+    null/undefined, it'll still register as having an error.
+  */
+  setIdError(key: ?string, id: string, error?: any) {
+    this.computedState = null;
+    this.ops.push({
+      type: 'updateIdDesc',
+      key: getKey(key),
+      id,
+      data: {
+        hasError: !!error,
+        error,
+      },
+    });
+  }
+
+  /*
+    Store a list, typically containing id strings, but can be any value.
+  */
+  setList(key: ?string, items: Array<any>) {
+    this.computedState = null;
+    if (!Array.isArray(items)) {
+      throw new Error(`HrStateWrapper::setList expected the second argument to be an array but got ${items}`);
+    }
+    this.ops.push({ type: 'setList', key: getKey(key), data: items });
+  }
+
+  setKv(key: ?string, id: string, value: any) {
+    this.computedState = null;
+
+    this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: { value } });
+  }
+
+  setKvMeta(key: ?string, id: string, value: $Shape<HrStateDesc<any>>) {
+    this.computedState = null;
+
+    this.ops.push({ type: 'setKvMeta', key: getKey(key), id, data: value });
+  }
+
+  /*
+    Compute the state by applying all update operations. Mostly for internal use.
+  */
+  getState() {
+    const { ops } = this;
+    if (!ops.length) return this.state;
+    this.ops = [];
+    if (this.computedState) return this.computedState;
+
+    // Cache this in case our code spans 2+ms, and gives better perf
+    const now = process.env.NODE_ENV === 'test' ? 1514862765212 : Date.now();
+
+    // Track which things we've cloned to improve performance, and avoid
+    // cloning objects that don't need to be cloned.
+    const cloned = { id: false, lists: false, kv: false };
+    const clonedKey = {
+      id: Object.create(null),
+      lists: Object.create(null),
+      kv: Object.create(null),
+    };
+
+    const state = { ...this.state };
+    for (let i = 0; i < ops.length; i += 1) {
+      const op = ops[i];
+
+      const key = getKey(op.key);
+
+      if (op.type === 'setIds') {
+        if (!cloned.id) {
+          state.byId = { ...state.byId };
+          cloned.id = true;
+        }
+        if (!clonedKey.id[key]) {
+          state.byId[key] = { ...state.byId[key] };
+          clonedKey.id[key] = true;
+        }
+
+        for (let j = 0; j < op.data.length; j += 1) {
+          const pair = op.data[j];
+          state.byId[key][pair[0]] = makeHrStateDesc(pair[1], { loadingCompleteTime: now });
+        }
+      }
+
+      if (op.type === 'setList') {
+        if (!cloned.lists) {
+          state.lists = { ...state.lists };
+          cloned.lists = true;
+        }
+        if (!clonedKey.lists[key]) {
+          state.lists[key] = { ...state.lists[key] };
+          clonedKey.lists[key] = true;
+        }
+
+        state.lists[key] = makeHrStateDesc(
+          op.data,
+          { loadingCompleteTime: now },
+        );
+      }
+
+      if (op.type === 'updateIdDesc') {
+        if (!cloned.id) {
+          state.byId = { ...state.byId };
+          cloned.id = true;
+        }
+        if (!clonedKey.id[key]) {
+          state.byId[key] = { ...state.byId[key] };
+          clonedKey.id[key] = true;
+        }
+
+        state.byId[key] = state.byId[key] || {};
+
+        state.byId[key][op.id] = state.byId[key][op.id]
+          ? { ...state.byId[key][op.id], ...op.data }
+          : makeHrStateDesc(null, op.data);
+      }
+
+      if (op.type === 'setKvMeta') {
+        if (!cloned.kv) {
+          state.kv = { ...state.kv };
+          cloned.kv = true;
+        }
+        if (!clonedKey.kv[key]) {
+          state.kv[key] = { ...state.kv[key] };
+          clonedKey.kv[key] = true;
+        }
+
+        state.kv[key] = state.kv[key] || {};
+
+        state.kv[key][op.id] = state.kv[key][op.id]
+          ? { ...state.kv[key][op.id], ...op.data }
+          : makeHrStateDesc(null, op.data);
+      }
+    }
+
+    this.computedState = state;
+
+    return state;
+  }
+}
