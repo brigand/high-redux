@@ -13,7 +13,9 @@
     "flow-bin": "^0.62.0",
     "jest": "^22.0.4",
     "react": "^16.2.0",
-    "react-dom": "^16.2.0"
+    "react-dom": "^16.2.0",
+    "react-redux": "^5.0.6",
+    "reselect": "^3.0.1"
   },
   "name": "high-redux",
   "version": "0.0.1",
@@ -25,5 +27,8 @@
     "testMatch": [
       "**/__tests__/**/*.test.js"
     ]
+  },
+  "dependencies": {
+    "shallowequal": "*"
   }
 }

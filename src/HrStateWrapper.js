@@ -57,7 +57,6 @@ export class HrStateWrapper {
   */
   constructor(state: ?t.HrState) {
     this.state = state || makeDefaultHrState();
-    this.computedState = null;
 
     this.ops = [];
   }
@@ -70,7 +69,6 @@ export class HrStateWrapper {
     return this.setIdPairsKey(null, pairs);
   }
   setIdPairsKey(key: ?string, pairs: Array<[string, any]>) {
-    this.computedState = null;
     if (!Array.isArray(pairs)) {
       throw new Error(`HrStateWrapper::setIdPairs expected the second argument to be an array but got ${pairs}`);
     }
@@ -88,7 +86,6 @@ export class HrStateWrapper {
     if (arguments.length < 3) {
       throw new Error(`HrStateWrapper::setById expects args (key: ?string, id: string, value: any) but received ${arguments.length} args`);
     }
-    this.computedState = null;
     this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value } });
     return this;
   }
@@ -101,7 +98,6 @@ export class HrStateWrapper {
     return this.setIdErrorKey(null, id, error);
   }
   setIdErrorKey(key: ?string, id: string, error?: any) {
-    this.computedState = null;
     this.ops.push({
       type: 'updateIdDesc',
       key: t.getKey(key),
@@ -120,7 +116,6 @@ export class HrStateWrapper {
     return this.setListKey(null, items);
   }
   setListKey(key: ?string, items: Array<any>) {
-    this.computedState = null;
     if (!Array.isArray(items)) {
       throw new Error(`HrStateWrapper::setList expected the second argument to be an array but got ${items}`);
     }
@@ -134,7 +129,6 @@ export class HrStateWrapper {
     return this.setKvKey(null, id, value);
   }
   setKvKey(key: ?string, id: string, value: any) {
-    this.computedState = null;
 
     this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: { value } });
     return this;
@@ -147,7 +141,6 @@ export class HrStateWrapper {
     return this.setKvMetaKey(null, id, value);
   }
   setKvMetaKey(key: ?string, id: string, value: $Shape<t.HrStateDesc<any>>) {
-    this.computedState = null;
 
     this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: value });
     return this;
@@ -160,7 +153,6 @@ export class HrStateWrapper {
     const { ops } = this;
     if (!ops.length) return this.state;
     this.ops = [];
-    if (this.computedState) return this.computedState;
 
     // Cache this in case our code spans 2+ms, and gives better perf
     const now = process.env.NODE_ENV === 'test' ? 1514862765212 : Date.now();
@@ -174,7 +166,7 @@ export class HrStateWrapper {
       kv: Object.create(null),
     };
 
-    const state = { ...this.state };
+    const state = this.computedState ? this.computedState : { ...this.state };
     for (let i = 0; i < ops.length; i += 1) {
       const op = ops[i];
 

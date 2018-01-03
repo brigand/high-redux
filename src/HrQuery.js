@@ -111,6 +111,18 @@ export default class HrQuery {
   }
 
   /*
+    Get the state descriptor for the given key/value pair. Mostly for internal use.
+  */
+  descKv(id: string) {
+    return this.descKvKey(t.getKey(null), id);
+  }
+  descKvKey(key: string, id: string) {
+    const obj = this._assertHr(`descByIdKey`);
+    const desc = obj.kv[key][id];
+    return desc || null;
+  }
+
+  /*
     Asserts that we have an HR state object. For internal use.
   */
   _assertHr(method: string, obj: Object = this.st): t.HrState {

@@ -1,7 +1,13 @@
 // @flow
 import { HrStateWrapper, makeDefaultHrState } from './HrStateWrapper'
+import HrQuery from './HrQuery';
+
 export * from './HrStateWrapper';
 export * from './types';
+export * from './HrQuery';
+
+// Convenience function
+export const query = (data) => new HrQuery(data);
 
 export type HighReducerRes = (state: ?Object, action: Object) => Object;
 
@@ -14,7 +20,7 @@ export type Opts = {
   actions: {[actionName: string]: ActionHandler},
 }
 
-export function makeHighReducer(opts: Opts): HighReducerRes {
+export function makeReducer(opts: Opts): HighReducerRes {
   const { name, actions } = opts;
 
   function reducer(_state: ?Object, action: Object): Object {
