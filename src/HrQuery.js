@@ -44,13 +44,18 @@ export default class HrQuery {
     const desc = this.descByIdKey(key, id);
     if (!desc) return {};
 
-    return {
+    const props = {
       [name]: desc.value,
       [`${name}Error`]: desc.error,
       [`${name}HasError`]: desc.hasError,
       [`${name}Loading`]: desc.loading,
       [`${name}Meta`]: desc.userMeta || {},
+      ['high-redux:do-spread']: true,
     };
+
+    Object.defineProperty(props, 'high-redux:do-spread', { value: true });
+
+    return props;
   }
 
   /*
@@ -69,21 +74,25 @@ export default class HrQuery {
     of how this works.
   */
   propsFromList(name: ?string = null) {
-    return this.propsFromListKey(t.getKey(null), name);
+    return this.propsFromListKey(null, name);
   }
-  propsFromListKey(key: string, _name: ?string = null) {
+  propsFromListKey(key: ?string, _name: ?string = null) {
     const name = _name || 'data';
 
-    const desc = this.descListKey(key);
-    if (!desc) return {};
+    const desc = this.descListKey(t.getKey(key)) || {};
 
-    return {
-      [name]: desc.value,
-      [`${name}Error`]: desc.error,
-      [`${name}HasError`]: desc.hasError,
-      [`${name}Loading`]: desc.loading,
+    const props = {
+      [name]: desc.value || [],
+      [`${name}Error`]: desc.error || null,
+      [`${name}HasError`]: desc.hasError || false,
+      [`${name}Loading`]: desc.loading || false,
       [`${name}Meta`]: desc.userMeta || {},
+      ['high-redux:do-spread']: true,
     };
+
+    Object.defineProperty(props, 'high-redux:do-spread', { value: true });
+
+    return props;
   }
 
   /*

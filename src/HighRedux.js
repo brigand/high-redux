@@ -1,17 +1,22 @@
 // @flow
 import { HrStateWrapper, makeDefaultHrState } from './HrStateWrapper'
 import HrQuery from './HrQuery';
+import withProps from './withProps';
 
 export * from './HrStateWrapper';
 export * from './types';
 export * from './HrQuery';
+export { withProps };
+
 
 // Convenience function
 export const query = (data) => new HrQuery(data);
 
-export type HighReducerRes = (state: ?Object, action: Object) => Object;
+export type HighReducerRes = {
+  reducer: (state: ?Object, action: Object) => Object,
+}
 
-export type ActionHandler = (s: HrStateWrapper, payload: Object) => HrStateWrapper;
+export type ActionHandler = (s: HrStateWrapper, payload: any, action: { type: string, payload: any }) => HrStateWrapper;
 
 export type Opts = {
   name?: string,
@@ -20,7 +25,7 @@ export type Opts = {
   actions: {[actionName: string]: ActionHandler},
 }
 
-export function makeReducer(opts: Opts): HighReducerRes {
+export function makeHr(opts: Opts): HighReducerRes {
   const { name, actions } = opts;
 
   function reducer(_state: ?Object, action: Object): Object {
@@ -31,11 +36,7 @@ export function makeReducer(opts: Opts): HighReducerRes {
 
     const hrState = new HrStateWrapper(state);
 
-    const payload = {
-      ...action.payload,
-      orig: action.originalAction ? action.originalAction : null,
-    };
-    const res = handler(hrState, payload);
+    const res = handler(hrState, action.payload, action);
 
     if (!(res instanceof HrStateWrapper)) {
       throw new Error(`Expected high redux reducer ${name || '(no name)'} to return an object or HrStateWrapper but got ${res}`);
@@ -46,5 +47,10 @@ export function makeReducer(opts: Opts): HighReducerRes {
     return resState;
   }
 
-  return reducer;
+  function addToObject(obj) {
+    obj[name] = reducer;
+    return obj;
+  }
+
+  return { name, reducer, addToObject };
 }

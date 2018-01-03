@@ -22,7 +22,7 @@
   },
   "name": "high-redux",
   "version": "0.0.1",
-  "main": "index.js",
+  "main": "./lib/HighRedux.js",
   "repository": "git@github.com:brigand/high-redux.git",
   "author": "Frankie Bagnardi <f.bagnardi@gmail.com>",
   "license": "MIT",

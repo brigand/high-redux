@@ -62,6 +62,15 @@ export class HrStateWrapper {
   }
 
   /*
+    Utility for running a function without breaking the chain. Essentially
+    an IIFE.
+  */
+  invoke(fn: Function) {
+    fn(this);
+    return this;
+  }
+
+  /*
     For each item in 'pairs', map the first item in the pair (the id) to the
     second item (the value). More efficient than `setById` for lists.
   */
@@ -88,6 +97,27 @@ export class HrStateWrapper {
     }
     this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value } });
     return this;
+  }
+
+  /*
+    Set the error value for an id to the argument. Even if the error value is
+    null/undefined, it'll still register as having an error.
+  */
+  setIdLoading(id: string) {
+    return this.setIdLoadingKey(null, id);
+  }
+  setIdLoadingKey(key: ?string, id: string) {
+    this.ops.push({
+      type: 'updateIdDesc',
+      key: t.getKey(key),
+      id,
+      data: {
+        hasError: false,
+        error: null,
+        loading: true,
+        loadingStartTime: Date.now(),
+      },
+    });
   }
 
   /*

@@ -16,7 +16,8 @@ describe(`HrQuery byId`, () => {
       fooError: null,
       fooHasError: false,
       fooLoading: false,
-      fooMeta: {}
+      fooMeta: {},
+      'high-redux:do-spread': true,
     });
   });
 });
@@ -38,7 +39,8 @@ describe(`HrQuery list`, () => {
       fooError: null,
       fooHasError: false,
       fooLoading: false,
-      fooMeta: {}
+      fooMeta: {},
+      'high-redux:do-spread': true
     });
   });
 });

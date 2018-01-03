@@ -85,6 +85,7 @@ export class PropData {
 
   bindAction(propName: string, getAction: Function) {
     this.dispatchPropOps.push(new DispatchPropOp(propName, getAction));
+    return this;
   }
 
   _makeSelector(sel: Function | string) {
@@ -96,9 +97,10 @@ export class PropData {
       propSelectors: selectors.map(this._makeSelector),
       getAction,
     });
+    return this;
   }
 
-  dispatchFromMapping(actionType: string, mapping: {[payloadKey: string]: any}) {
+  watchAndDispatch(actionType: string, mapping: {[payloadKey: string]: any}) {
     const keys = Object.keys(mapping);
     const values = keys.map(key => mapping[key]);
     this.propsToDispatchRaw(values, (ownProps, results) => {
@@ -111,6 +113,7 @@ export class PropData {
         payload,
       }
     });
+    return this;
   }
 
   propsToDispatchPos(actionType: string, selectors: Array<string>) {
@@ -133,6 +136,7 @@ export class PropData {
         payload,
       };
     });
+    return this;
   }
 
   keyBy(_selector: string | Function) {
@@ -144,6 +148,7 @@ export class PropData {
     }
 
     this.computeKey = selector;
+    return this;
   }
 
 
@@ -159,10 +164,11 @@ export class PropData {
       const handlers = propOps.map(x => x.getHandler ? x.getHandler() : x.handler);
       return function mapStateToProps(state: Object, ownProps: Object) {
         const resProps = {};
+        const wrappedState = wrapWholeStateInQueries(state)
         for (let i = 0; i < handlers.length; i += 1) {
           const handler = handlers[i];
           if (handler) {
-            handler(resProps, state, ownProps);
+            handler(resProps, wrappedState, ownProps);
           }
         }
         return resProps;
@@ -235,13 +241,29 @@ class SelectOp extends BaseStateOp {
     this.funcs = funcs;
 
     if (funcs.length === 1) {
-      this.handler = funcs[0];
+      var self = this;
+      const selectOpHandler = (resProps, state, ownProps) => {
+        const data = funcs[0](state, ownProps);
+        self._applyRes(resProps, data);
+      };
+      this.handler = selectOpHandler;
     } else {
       this.getHandler = () => {
         const selector = createSelector(...funcs);
 
-        return (state, ownProps) => selector(wrapWholeStateInQueries(state), ownProps);
+        return (resProps, state, ownProps) => {
+          const data = selector(wrapWholeStateInQueries(state), ownProps);
+          this._applyRes(resProps, data);
+        };
       };
+    }
+  }
+
+  _applyRes(resProps, data) {
+    if (data && data['high-redux:do-spread']) {
+      Object.assign(resProps, data);
+    } else {
+      resProps[this.propName] = data;
     }
   }
 }
@@ -250,7 +272,7 @@ function wrapWholeStateInQueries(state) {
   const keys = Object.keys(state);
   const out = {};
   for (let i = 0; i < keys.length; i += 1) {
-    const key = keys[0];
+    const key = keys[i];
     out[key] = queryOrIdentity(state[key]);
   }
   return out;
