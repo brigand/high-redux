@@ -21,7 +21,7 @@
     "reselect": "^3.0.1"
   },
   "name": "high-redux",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "main": "./lib/HighRedux.js",
   "repository": "git@github.com:brigand/high-redux.git",
   "author": "Frankie Bagnardi <f.bagnardi@gmail.com>",
