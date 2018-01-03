@@ -10,17 +10,13 @@ export type PropAction = {
   payload: any,
 }
 
-export type DispatcherOp = {
+export type DispatchComponentOp = {
   propSelectors: Array<PropSelector>,
   getAction: (ownProps: Object, selectorResults: Array<any>) => PropAction,
 }
 
-export default function buildDispatcherComponent(C: React.ComponentType<Object>, ops: Array<DispatcherOp>) {
+export default function buildDispatcherComponent(C: React.ComponentType<Object>, ops: Array<DispatchComponentOp>) {
   class DispatcherComponent extends React.Component<any> {
-    static contextTypes = {
-      store: PT.any.isRequired,
-    }
-
     previousValues: Array<any>
 
     constructor(props: any, context: any) {
@@ -63,6 +59,8 @@ export default function buildDispatcherComponent(C: React.ComponentType<Object>,
       return <C {...this.props} />;
     }
   }
+
+  DispatcherComponent.contextTypes = { store: PT.any.isRequired };
 
   return DispatcherComponent;
 }

@@ -2,7 +2,7 @@
 import type { ComponentType } from 'react';
 import { createSelector } from 'reselect';
 import { connect } from 'react-redux';
-import buildDispatcherComponent, { type DispatcherOp } from './buildDispatcherComponent';
+import buildDispatcherComponent, { type DispatchComponentOp } from './buildDispatcherComponent';
 import HrQuery from './HrQuery';
 import * as t from './types';
 
@@ -12,11 +12,13 @@ function queryOrIdentity(value: any) {
 }
 
 export class PropData {
-  propOps: Array<BaseOperation>
-  dispatchOps: Array<DispatcherOp>
+  propOps: Array<BaseStateOp>
+  dispatchComponentOps: Array<DispatchComponentOp>
+  dispatchPropOps: Array<DispatchPropOp>
   constructor() {
     this.propOps = [];
-    this.dispatchOps = [];
+    this.dispatchComponentOps = [];
+    this.dispatchPropOps = [];
   }
 
 
@@ -28,16 +30,18 @@ export class PropData {
 
   // Wrap a component in connect()
   wrap(component: ComponentType<any>) {
+    let C = connect(this._buildMapState(), this._buildMapDispatch())(component);
 
+    if (this.dispatchComponentOps.length) {
+      C = this._buildDispatcherComponent(C);
+    }
+
+    return C;
   }
 
   // Returns a render callback component
   asRender() {
 
-  }
-
-  _buildDispatcherComponent(C: ComponentType<any>) {
-    return buildDispatcherComponent(C, this.dispatchOps);
   }
 
   /*
@@ -72,24 +76,93 @@ export class PropData {
     throw new Error(`select expects 1 or more strings, or 1 or more functions but recieved ${args.map(x => typeof x).join(', ')}`);
   }
 
+  bindAction(propName: string, getAction: Function) {
+    this.dispatchPropOps.push(new DispatchPropOp(propName, getAction));
+  }
+
   _makeSelector(sel: Function | string) {
     return typeof sel === 'function' ? sel : ((ownProps: Object) => ownProps[sel]);
   }
 
-  // userId, { type: 'FETCH_FOO', payload: { id: userId }}
-  propsToDispatch(...args: Array<any>) {
-    // Check if they provide an action factory
-    if (typeof args[args.length - 1] === 'function') {
-      const selectors = args.slice(0, -1);
-      const fn = args[args.length - 1];
-      this.dispatchOps.push({
-        propSelectors: selectors.map(this._makeSelector),
-        getAction: fn,
-      });
-    // Otherwise we'll create one from positional arguments.
-    } else {
-      throw new Error(`withProps::propsToDispatch expected last argument to be a function`);
+  propsToDispatchRaw(selectors: Array<any>, getAction: Function) {
+    this.dispatchComponentOps.push({
+      propSelectors: selectors.map(this._makeSelector),
+      getAction,
+    });
+  }
+
+  dispatchFromMapping(actionType: string, mapping: {[payloadKey: string]: any}) {
+    const keys = Object.keys(mapping);
+    const values = keys.map(key => mapping[key]);
+    this.propsToDispatchRaw(values, (ownProps, results) => {
+      const payload = {};
+      for (let i = 0; i < keys.length; i += 1) {
+        payload[keys[i]] = results[i];
+      }
+      return {
+        type: actionType,
+        payload,
+      }
+    });
+  }
+
+  propsToDispatchPos(actionType: string, selectors: Array<string>) {
+    const invalidIndex = selectors.findIndex(x => typeof x !== 'string');
+    if (invalidIndex !== -1) {
+      throw new Error(`withProps::propsToDispatchPos expected all selectors to be strings, but selector at ${invalidIndex} is ${typeof selectors[invalidIndex]}`);
     }
+
+    this.propsToDispatchRaw(selectors, (ownProps: Object, results: Array<any>) => {
+      const payload = {};
+
+      for (let i = 0; i < selectors.length; i += 1) {
+        const sel = selectors[i];
+        const res = results[i];
+        payload[sel] = res;
+      }
+
+      return {
+        type: actionType,
+        payload,
+      };
+    });
+  }
+
+
+  _buildDispatcherComponent(C: ComponentType<any>) {
+    return buildDispatcherComponent(C, this.dispatchComponentOps);
+  }
+
+  // Builds mapStateToProps for connect
+  _buildMapState() {
+    const { propOps } = this;
+
+    return function makeMapStateToProps() {
+      const handlers = propOps.map(x => x.getHandler ? x.getHandler() : x.handler);
+      return function mapStateToProps(state: Object, ownProps: Object) {
+        const resProps = {};
+        for (let i = 0; i < handlers.length; i += 1) {
+          const handler = handlers[i];
+          if (handler) {
+            handler(resProps, state, ownProps);
+          }
+        }
+        return resProps;
+      }
+    }
+  }
+
+  // Builds mapDispatchToProps for connect
+  _buildMapDispatch() {
+    const { dispatchPropOps } = this;
+
+    const mapDispatchToProps = {};
+    for (let i = 0; i < dispatchPropOps.length; i += 1) {
+      const op = dispatchPropOps[i];
+      mapDispatchToProps[op.propName] = op.makeAction;
+    }
+
+    return mapDispatchToProps;
   }
 }
 
@@ -97,7 +170,7 @@ export default function withProps() {
   return new PropData();
 }
 
-class BaseOperation {
+class BaseStateOp {
   // The prop name hint. Most set a prop with this name.
   propName: string
 
@@ -121,7 +194,7 @@ class BaseOperation {
   }
 }
 
-class DirectAccessOp extends BaseOperation {
+class DirectAccessOp extends BaseStateOp {
   constructor(propName, keys: Array<string>) {
     super(propName);
     const handler = (resProps, state) => {
@@ -136,7 +209,7 @@ class DirectAccessOp extends BaseOperation {
   }
 }
 
-class SelectOp extends BaseOperation {
+class SelectOp extends BaseStateOp {
   funcs: Array<Function>
 
   constructor(propName, funcs: Array<Function>) {
@@ -163,4 +236,13 @@ function wrapWholeStateInQueries(state) {
     out[key] = queryOrIdentity(state[key]);
   }
   return out;
+}
+
+class DispatchPropOp {
+  propName: string
+  makeAction: Function
+  constructor(propName: string, makeAction: Function) {
+    this.propName = propName;
+    this.makeAction = makeAction;
+  }
 }
