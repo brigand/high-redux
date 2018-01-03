@@ -15,7 +15,11 @@ export type DispatchComponentOp = {
   getAction: (ownProps: Object, selectorResults: Array<any>) => PropAction,
 }
 
-export default function buildDispatcherComponent(C: React.ComponentType<Object>, ops: Array<DispatchComponentOp>) {
+type ExtraOpts = {
+  computeKey: ?Function
+}
+
+export default function buildDispatcherComponent(C: React.ComponentType<Object>, ops: Array<DispatchComponentOp>, extraOpts: ExtraOpts) {
   class DispatcherComponent extends React.Component<any> {
     previousValues: Array<any>
 
@@ -52,11 +56,23 @@ export default function buildDispatcherComponent(C: React.ComponentType<Object>,
     }
 
     dispatchAction(action: PropAction) {
-      this.context.store.dispatch(action);
+      if (action) {
+        this.context.store.dispatch(action);
+      }
     }
 
     render() {
-      return <C {...this.props} />;
+      let key = undefined;
+      const { computeKey } = extraOpts || {};
+      if (computeKey) {
+        key = computeKey(this.props, this.context.store.getState());
+      }
+
+      if (key !== undefined) {
+        return <C {...this.props} key={key} />;
+      } else {
+        return <C {...this.props} />;
+      }
     }
   }
 

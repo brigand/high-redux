@@ -15,10 +15,13 @@ export class PropData {
   propOps: Array<BaseStateOp>
   dispatchComponentOps: Array<DispatchComponentOp>
   dispatchPropOps: Array<DispatchPropOp>
+  computeKey: ?Function
+
   constructor() {
     this.propOps = [];
     this.dispatchComponentOps = [];
     this.dispatchPropOps = [];
+    this.computeKey = null;
   }
 
 
@@ -32,7 +35,11 @@ export class PropData {
   wrap(component: ComponentType<any>) {
     let C = connect(this._buildMapState(), this._buildMapDispatch())(component);
 
-    if (this.dispatchComponentOps.length) {
+    if (this.dispatchComponentOps.length
+      // If computeKey is defined, we need a wrapper component that sets the 'key', so we build the
+      // dispatch component even if there are no dispatch opts
+      || this.computeKey
+    ) {
       C = this._buildDispatcherComponent(C);
     }
 
@@ -128,9 +135,20 @@ export class PropData {
     });
   }
 
+  keyBy(_selector: string | Function) {
+    const selector = typeof _selector === 'string'
+      ? ((ownProps) => ownProps[_selector])
+      : _selector;
+    if (typeof selector !== 'function') {
+      throw new Error(`withProps::keyBy first arg must be a string or function`);
+    }
+
+    this.computeKey = selector;
+  }
+
 
   _buildDispatcherComponent(C: ComponentType<any>) {
-    return buildDispatcherComponent(C, this.dispatchComponentOps);
+    return buildDispatcherComponent(C, this.dispatchComponentOps, { computeKey: this.computeKey });
   }
 
   // Builds mapStateToProps for connect
