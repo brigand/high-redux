@@ -12,7 +12,7 @@ Object {
         "loading": false,
         "loadingCompleteTime": 0,
         "loadingStartTime": 0,
-        "userMeta": Object {},
+        "etc": Object {},
         "value": "another-value",
       },
       "some-id": Object {
@@ -21,7 +21,7 @@ Object {
         "loading": false,
         "loadingCompleteTime": 1514862765212,
         "loadingStartTime": 0,
-        "userMeta": Object {},
+        "etc": Object {},
         "value": "some-value",
       },
     },
@@ -35,7 +35,7 @@ Object {
       "loading": false,
       "loadingCompleteTime": 1514862765212,
       "loadingStartTime": 0,
-      "userMeta": Object {},
+      "etc": Object {},
       "value": Array [
         "some-id",
         "another-id",

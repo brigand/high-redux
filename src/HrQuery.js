@@ -49,7 +49,7 @@ export default class HrQuery {
       [`${name}Error`]: desc.error,
       [`${name}HasError`]: desc.hasError,
       [`${name}Loading`]: desc.loading,
-      [`${name}Meta`]: desc.userMeta || {},
+      [`${name}Meta`]: desc.etc || {},
       ['high-redux:do-spread']: true,
     };
 
@@ -86,7 +86,7 @@ export default class HrQuery {
       [`${name}Error`]: desc.error || null,
       [`${name}HasError`]: desc.hasError || false,
       [`${name}Loading`]: desc.loading || false,
-      [`${name}Meta`]: desc.userMeta || {},
+      [`${name}Meta`]: desc.etc || {},
       ['high-redux:do-spread']: true,
     };
 

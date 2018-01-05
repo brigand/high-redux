@@ -91,10 +91,10 @@ describe(`HrStateWrapper kv`, () => {
   it(`setKvMeta`, () => {
     const s = new HrStateWrapper();
     s.setKv('test', 'val');
-    s.setKvMeta('test', { userMeta: { x: 1 } });
+    s.setKvMeta('test', { etc: { x: 1 } });
 
     const state = s.getState();
     expect(state.kv[getKey()].test.value).toBe('val');
-    expect(state.kv[getKey()].test.userMeta.x).toBe(1);
+    expect(state.kv[getKey()].test.etc.x).toBe(1);
   });
 });

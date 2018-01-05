@@ -20,7 +20,7 @@ export function makeHrStateDesc<T>(value: T, properties: ?$Shape<t.HrStateDesc<T
     value,
     loadingStartTime: 0,
     loadingCompleteTime: 0,
-    userMeta: {},
+    etc: {},
     ...properties,
   };
 }
@@ -71,7 +71,7 @@ export class HrStateWrapper {
   }
 
   /*
-    For each item in 'pairs', map the first item in the pair (the id) to the
+    For each item in `pairs`, map the first item in the pair (the id) to the
     second item (the value). More efficient than `setById` for lists.
   */
   setIdPairs(pairs: Array<[string, any]>) {
@@ -101,7 +101,7 @@ export class HrStateWrapper {
 
   /*
     Set the error value for an id to the argument. Even if the error value is
-    null/undefined, it'll still register as having an error.
+    `null`/`undefined`, it'll still register as having an error.
   */
   setIdLoading(id: string) {
     return this.setIdLoadingKey(null, id);
@@ -165,7 +165,7 @@ export class HrStateWrapper {
   }
 
   /*
-    Sets metadata for the key, e.g. setKvMeta(id, { loading: true, userMeta: { anything: 1 } })
+    Sets metadata for the key, e.g. `setKvMeta(id, { loading: true, etc: { anything: 1 } })`
   */
   setKvMeta(id: string, value: $Shape<t.HrStateDesc<any>>) {
     return this.setKvMetaKey(null, id, value);

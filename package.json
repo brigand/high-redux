@@ -1,7 +1,9 @@
 {
   "scripts": {
     "test": "jest",
-    "build": "babel src --out-dir lib --ignore __tests__",
+    "babel": "babel src --out-dir lib --ignore __tests__",
+    "bify": "node scripts/browserify.js",
+    "build": "npm run babel && npm run bify",
     "prepublish": "npm run build"
   },
   "devDependencies": {
@@ -11,6 +13,7 @@
     "babel-preset-latest": "^6.24.1",
     "babel-preset-react": "^6.24.1",
     "babel-preset-stage-3": "^6.24.1",
+    "browserify": "^15.0.0",
     "enzyme": "^3.3.0",
     "enzyme-adapter-react-16": "^1.1.1",
     "flow-bin": "^0.62.0",

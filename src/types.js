@@ -12,7 +12,7 @@ export type HrStateDesc<T> = {
   value: T,
   loadingStartTime: number,
   loadingCompleteTime: number,
-  userMeta: Object,
+  etc: Object,
 }
 
 export type HrStateById = { [type: string]: { [id: string]: HrStateDesc<any> } };
