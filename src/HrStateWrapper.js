@@ -27,7 +27,7 @@ export function makeHrStateDesc<T>(value: T, properties: ?$Shape<t.HrStateDesc<T
 }
 
 type PathType = 'id' | 'list' | 'kv';
-type OpType = 'set' | 'setIds' | 'updateValue' | 'mergeDesc';
+type OpType = 'set' | 'setIds' | 'updateValue' | 'mergeDesc' | 'setInDesc';
 
 type StateInfo = {
   state: t.HrState,
@@ -99,16 +99,21 @@ export class HrStateWrapper {
   }
 
   /*
-    Utility for running a function without breaking the chain. Essentially
-    an IIFE.
+    Utility for running a function without breaking the chain. Receives the
+    `HrStateWrapper` as an argument.
   */
-  invoke(fn: Function) {
+  invoke(fn: (s: HrStateWrapper) => mixed) {
     fn(this);
     return this;
   }
 
   /*
-    Returns a state wrapper for the specified `id`
+    Returns a state wrapper for the specified `id`. You can then call methods
+    like `.set` on it.
+
+    ```javascript
+    s.id('some-id').set('some-value')
+    ```
   */
   id(id: string) {
     const path = makePath(this.path.info, this);
@@ -118,7 +123,11 @@ export class HrStateWrapper {
   }
 
   /*
-    Returns a state wrapper for the specified `id`
+    Returns a state wrapper for the list.
+
+    ```javascript
+    s.list().set(['a', 'b'])
+    ```
   */
   list() {
     const path = makePath(this.path.info, this);
@@ -128,7 +137,11 @@ export class HrStateWrapper {
   }
 
   /*
-    Returns a state wrapper for the specified `id`
+    Returns a state wrapper for the specified key in the key/value pair.
+
+    ```javascript
+    s.kv('some-key').set('some-value')
+    ```
   */
   kv(kvKey: string) {
     const path = makePath(this.path.info, this);
@@ -137,6 +150,13 @@ export class HrStateWrapper {
     return new HrStateWrapper(path);
   }
 
+  /*
+    Returns a state wrapper for the specified sub-key.
+
+    ```javascript
+    s.key('some-key').id('some-id').set('foo')
+    ```
+  */
   key(key: string) {
     const path = makePath(this.path.info, this);
     path.key = key;
@@ -144,14 +164,14 @@ export class HrStateWrapper {
   }
 
   /*
-    Get an HrQuery object for the state.
+    Get an `HrQuery` object for the state.
   */
   query() {
     return new HrQuery(this.path.info.state);
   }
 
   /*
-    Sets the currently focused item, e.g. `s.id(x.id).set(x)` would set that item.
+    Sets the currently focused item. See the examples for `id`/`list`/`kv`
   */
   set(value: any) {
     this._pushOp('set', value);
@@ -160,12 +180,13 @@ export class HrStateWrapper {
 
   /*
     For each item in `pairs`, map the first item in the pair (the id) to the
-    second item (the value). More efficient than `setById` for many items.
+    second item (the value).
 
     Often you'll generate this with an `array.map` call.
 
     ```javascript
     s.setIdPairs(items.map(x => [x.id, x]))
+    s.key('some-key').setIdPairs(items.map(x => [x.id, x]))
     ```
   */
   setIds(pairs: Array<[string, any]>) {
@@ -174,28 +195,50 @@ export class HrStateWrapper {
   }
 
   /*
-    Update an item with the given id by passing it to the 'updater' function
+    Update an item with the given id by passing it to the 'updater' function.
   */
   update(updater: Function) {
     this._pushOp('updateValue', updater);
+    return this;
   }
 
-  // TODO: implement when HrQuery also supports paths
-  // get() {
-  //   return new HrQuery(this.state).valueByIdKey(t.getKey(key), id) || null;
-  // }
+  /*
+    Set the focused item to a loading state. Also captures the loading state.
 
-  setLoading(finished: boolean = false) {
-    const desc: Object = { hasError: false, loading: finished };
-    if (finished) {
-      desc.loadingCompleteTime = this.path.info.time;
-    } else {
-      desc.loadingStartTime = this.path.info.time;
-    }
+    ```javascript
+    s.id('some-id').setLoading()
+    ```
+  */
+  setLoading() {
+    const desc: Object = { hasError: false, loading: true, loadingStartTime: this.path.info.time };
 
     this._pushOp('mergeDesc', desc);
+
+    return this;
   }
 
+  /*
+    Set the focused item to a completed loading state.
+
+    ```javascript
+    s.id('some-id').setLoadingDone()
+    ```
+  */
+  setLoadingDone() {
+    const desc: Object = { hasError: false, loading: false, loadingCompleteTime: this.path.info.time };
+
+    this._pushOp('mergeDesc', desc);
+
+    return this;
+  }
+
+  /*
+    Set the focused item to an error state. Pass `null` to clear the error state.
+
+    ```javascript
+    s.id('some-id').setError({ message: 'Oops' })
+    ```
+  */
   setError(error: ?any) {
     const desc: Object = {
       hasError: error != null,
@@ -205,10 +248,21 @@ export class HrStateWrapper {
     };
 
     this._pushOp('mergeDesc', desc);
+
+    return this;
   }
 
-  setMeta(data: Object) {
-    this._pushOp('mergeDesc', { etc: data });
+  /*
+    Set custom metadata for the current item.
+
+    ```javascript
+    s.id('some-id').setMeta('isNew', true)
+    ```
+  */
+  setMeta(metaKey: string, metaValue: any) {
+    this._pushOp('setInDesc', { path: ['etc', metaKey], value: metaValue });
+
+    return this;
   }
 
   /*
@@ -273,6 +327,20 @@ export class HrStateWrapper {
           // $FlowFixMe
           state[stateKey][key][op.typeValue] = desc;
         }
+
+        if (op.op === 'setInDesc') {
+          // $FlowFixMe
+          const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
+
+          const final = op.data.path.slice(0, -1).reduce((acc, k) => {
+            desc[k] = { ...desc[k] };
+            return desc[k];
+          }, desc);
+          final[op.data.path[op.data.path.length - 1]] = op.data.value;
+
+          // $FlowFixMe
+          state[stateKey][key][op.typeValue] = desc;
+        }
       }
 
       if (op.type === 'list') {
@@ -293,9 +361,21 @@ export class HrStateWrapper {
         }
 
         if (op.op === 'mergeDesc') {
-          // $FlowFixMe
-          const desc = state.lists[key] ? { ...state[stateKey][key] } : makeHrStateDesc(null);
+          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
           Object.assign(desc, op.data);
+          // $FlowFixMe
+          state[stateKey][key] = desc;
+        }
+
+        if (op.op === 'setInDesc') {
+          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
+
+          const final = op.data.path.slice(0, -1).reduce((acc, k) => {
+            desc[k] = { ...desc[k] };
+            return desc[k];
+          }, desc);
+          final[op.data.path[op.data.path.length - 1]] = op.data.value;
+
           // $FlowFixMe
           state[stateKey][key] = desc;
         }

@@ -1,4 +1,4 @@
-import { HrStateWrapper } from '../HrStateWrapper';
+import { wrapperFromState } from '../HrStateWrapper';
 
 export const IDS = [
   '3QmA9amhnWoYaw',
@@ -10,17 +10,17 @@ export const IDS = [
 ];
 
 export default function hrStateFixture() {
-  const s = new HrStateWrapper();
+  const s = wrapperFromState();
 
   IDS.forEach((id, i) => {
     if (i === 1) {
-      s.setIdError(id, { type: 'not_found' });
+      s.id(id).setError({ type: 'not_found' });
     } else {
-      s.setById(id, { index: i });
+      s.id(id).set({ index: i });
     }
   });
 
-  s.setList(IDS);
+  s.list().set(IDS);
 
   return s;
 }

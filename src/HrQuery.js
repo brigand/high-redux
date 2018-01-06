@@ -1,25 +1,45 @@
 // @flow
 import * as t from './types';
 
+type HrQueryPath = {
+  key: ?string,
+}
+
+function makePath() {
+  return { key: null };
+}
+
 export default class HrQuery {
   st: Object;
+  path: HrQueryPath;
 
   /*
     Create an HrQuery for the given object, which often implements the HrState
     interface. Most methods don't work on any other object.
   */
-  constructor(stateTree: Object) {
+  constructor(stateTree: Object, path: ?HrQueryPath) {
     this.st = stateTree
+    this.path = path || makePath();
+  }
+
+
+  /*
+    Scope the query to a specific key
+  */
+  key(key: string): HrQuery {
+    const path = {
+      ...this.path,
+      key,
+    };
+
+    return new HrQuery(this.st, path);
   }
 
   /*
     Get the value with the specified id, or null if it doesn't exist.
   */
-  valueById(id: string) {
-    return this.valueByIdKey(t.getKey(null), id);
-  }
-  valueByIdKey(key: string, id: string) {
-    const desc = this.descByIdKey(key, id);
+  id(id: string) {
+    const desc = this.idDesc(id);
     return desc ? desc.value : null;
   }
 
@@ -35,13 +55,9 @@ export default class HrQuery {
     var p = propsById(someId, 'foo') gives p.foo as the main data, and p.fooLoading
     as the loading boolean.
   */
-  propsById(id: string, name: ?string = null) {
-    return this.propsByIdKey(t.getKey(null), id, name);
-  }
-  propsByIdKey(key: string, id: string, _name: ?string = null) {
-    const name = _name || 'data';
+  idProps(id: string, name: string = 'data') {
+    const desc = this.idDesc(id);
 
-    const desc = this.descByIdKey(key, id);
     if (!desc) return {};
 
     const props = {
@@ -50,36 +66,36 @@ export default class HrQuery {
       [`${name}HasError`]: desc.hasError,
       [`${name}Loading`]: desc.loading,
       [`${name}Meta`]: desc.etc || {},
-      ['high-redux:do-spread']: true,
     };
-
-    Object.defineProperty(props, 'high-redux:do-spread', { value: true });
 
     return props;
   }
 
   /*
-    Get the default list. Always returns an array, but it may be empty
+    Get the list for the current key. Always returns an array, but it may be empty
   */
   list() {
-    return this.listKey(t.getKey(null));
+    const desc = this.listDesc();
+
+    if (!desc) return [];
+
+    return desc.value;
   }
-  listKey(key: string) {
-    const obj = this._assertHr(`list`);
-    return obj.lists[key] && obj.lists[key].value || [];
+
+  listDesc() {
+    const key = t.getKey(this.path.key);
+    const desc = this.st.lists[key];
+    return desc || null;
   }
 
   /*
     Get props for the list state. See the propsById docs for an example
     of how this works.
   */
-  propsFromList(name: ?string = null) {
-    return this.propsFromListKey(null, name);
-  }
-  propsFromListKey(key: ?string, _name: ?string = null) {
-    const name = _name || 'data';
+  listProps(name: string = 'items') {
+    const desc = this.listDesc();
 
-    const desc = this.descListKey(t.getKey(key)) || {};
+    if (!desc) return {};
 
     const props = {
       [name]: desc.value || [],
@@ -87,57 +103,29 @@ export default class HrQuery {
       [`${name}HasError`]: desc.hasError || false,
       [`${name}Loading`]: desc.loading || false,
       [`${name}Meta`]: desc.etc || {},
-      ['high-redux:do-spread']: true,
     };
-
-    Object.defineProperty(props, 'high-redux:do-spread', { value: true });
 
     return props;
   }
 
-  /*
-    Get the state descriptor for the given id. Mostly for internal use.
-  */
-  descById(id: string) {
-    return this.descByIdKey(t.getKey(null), id);
-  }
-  descByIdKey(key: string, id: string) {
-    const obj = this._assertHr(`descByIdKey`);
-    const desc = obj.byId[key][id];
+  idDesc(id: string) {
+    const desc = this.st.byId[t.getKey(this.path.key)][id];
     return desc || null;
   }
 
   /*
     Get the state descriptor for the list. Mostly for internal use.
   */
-  descList() {
-    return this.descListKey(t.getKey(null));
-  }
-  descListKey(key: string) {
-    const obj = this._assertHr(`descListKey`);
-    const desc = obj.lists[key];
+  listDesc() {
+    const desc = this.st.lists[t.getKey(this.path.key)];
     return desc || null;
   }
 
   /*
     Get the state descriptor for the given key/value pair. Mostly for internal use.
   */
-  descKv(id: string) {
-    return this.descKvKey(t.getKey(null), id);
-  }
-  descKvKey(key: string, id: string) {
-    const obj = this._assertHr(`descByIdKey`);
-    const desc = obj.kv[key][id];
+  kvDesc(id: string) {
+    const desc = this.st.kv[t.getKey(this.path.key)][id];
     return desc || null;
-  }
-
-  /*
-    Asserts that we have an HR state object. For internal use.
-  */
-  _assertHr(method: string, obj: Object = this.st): t.HrState {
-    if (!obj.isHrState) {
-      throw new Error(`HrQuery::${method} requires a high-redux state object but got {${Object.keys(obj).join(', ')}}`);
-    }
-    return obj;
   }
 }

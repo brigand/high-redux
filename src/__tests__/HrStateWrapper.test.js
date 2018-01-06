@@ -92,7 +92,7 @@ describe(`HrStateWrapper kv`, () => {
   it(`setKvMeta`, () => {
     const s = wrapperFromState();
     s.kv('test').set('val');
-    s.kv('test').setMeta({ x: 1 });
+    s.kv('test').setMeta('x', 1);
 
     const state = s.getState();
     expect(state.kv[getKey()].test.value).toBe('val');

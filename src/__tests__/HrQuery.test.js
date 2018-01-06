@@ -4,20 +4,19 @@ import hrStateFixture, { IDS } from './hrStateFixture';
 describe(`HrQuery byId`, () => {
   it(`valueById`, () => {
     const q = new HrQuery(hrStateFixture().getState());
-    const v = q.valueById(IDS[0]);
+    const v = q.id(IDS[0]);
     expect(v).toEqual({ index: 0 });
   });
 
   it(`propsById`, () => {
     const q = new HrQuery(hrStateFixture().getState());
-    const v = q.propsById(IDS[0], 'foo');
+    const v = q.idProps(IDS[0], 'foo');
     expect(v).toEqual({
       foo: { index: 0 },
       fooError: null,
       fooHasError: false,
       fooLoading: false,
       fooMeta: {},
-      'high-redux:do-spread': true,
     });
   });
 });
@@ -33,14 +32,13 @@ describe(`HrQuery list`, () => {
 
   it(`propsFromList`, () => {
     const q = new HrQuery(hrStateFixture().getState());
-    const v = q.propsFromList('foo');
+    const v = q.listProps('foo');
     expect(v).toEqual({
       foo: IDS,
       fooError: null,
       fooHasError: false,
       fooLoading: false,
       fooMeta: {},
-      'high-redux:do-spread': true
     });
   });
 });
