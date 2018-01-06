@@ -1,5 +1,6 @@
 // @flow
 import * as t from './types';
+import HrQuery from './HrQuery';
 
 // eslint-disable-next-line
 
@@ -48,6 +49,7 @@ type HrStateWrapperOp = {
 export class HrStateWrapper {
   state: t.HrState
   ops: Array<HrStateWrapperOp>
+  time: number
 
   // In case getState is called twice without any ops being pushed
   computedState: ?t.HrState;
@@ -58,6 +60,11 @@ export class HrStateWrapper {
   constructor(state: ?t.HrState) {
     this.state = state || makeDefaultHrState();
 
+    if (process.env.NODE_ENV === 'test') {
+      this.setTime(1500000000000);
+    } else {
+      this.setTime(Date.now());
+    }
     this.ops = [];
   }
 
@@ -71,8 +78,56 @@ export class HrStateWrapper {
   }
 
   /*
+    Get an HrQuery object for the state.
+
+    The argument `type` indicates which version of the state to use.
+
+    By default, type is `'initial'`, where it uses the initial state passed to
+    `HrState`, ignoring any queued operations on the state. Most of the time,
+    this is what you want.
+
+    The `'cached'` variation is very rarely useful, but it gives the state snapshot
+    from the last time `getState` was called.
+
+    The `'compute'` option applies all pending state updates by calling `getState`,
+    and gives an `HrQuery` of the result.
+
+    To understand the differences, say we have a key/value of `'x'` set to `'foo'` from a previous
+    call to the action handler, and then this code is running:
+
+    The following (or omitting the argument to .query) gives `'foo'`.
+
+    ```javascript
+    s.setKv('x', 'bar')
+      .query('initial') // or .query() with no args
+      .getKv('x')
+    ```
+
+    Where here, where we pass `'compute'`, it gives '`bar'`.
+
+    ```javascript
+    s.setKv('x', 'bar')
+      .query('compute')
+      .getKv('x')
+    ```
+  */
+  query(type: ('initial' | 'cached' | 'compute') = 'initial') {
+    let state = this.state;
+    if (type === 'cached' && this.computedState) state = this.computedState;
+    if (type === 'compute') state = this.getState();
+
+    return new HrQuery(state);
+  }
+
+  /*
     For each item in `pairs`, map the first item in the pair (the id) to the
-    second item (the value). More efficient than `setById` for lists.
+    second item (the value). More efficient than `setById` for many items.
+
+    Often you'll generate this with an `array.map` call.
+
+    ```javascript
+    s.setIdPairs(items.map(x => [x.id, x]))
+    ```
   */
   setIdPairs(pairs: Array<[string, any]>) {
     return this.setIdPairsKey(null, pairs);
@@ -95,29 +150,59 @@ export class HrStateWrapper {
     if (arguments.length < 3) {
       throw new Error(`HrStateWrapper::setById expects args (key: ?string, id: string, value: any) but received ${arguments.length} args`);
     }
-    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value } });
+    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value, loading: false, loadingCompleteTime: this.time } });
     return this;
+  }
+
+  /*
+    Update an item with the given id by passing it to the 'updater' function
+  */
+  updateById(id: string, updater: Function) {
+    return this.updateByIdKey(null, id, updater);
+  }
+
+  updateByIdKey(key: ?string, id: string, updater: Function) {
+    const value = updater(this._getById(key, id));
+
+    // Not sure why we can't make value nullable
+    // $FlowFixMe
+    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), data: { value } });
+
+    return this;
+  }
+
+  _getById(key: ?string, id: string) {
+    return new HrQuery(this.state).valueByIdKey(t.getKey(key), id) || null;
   }
 
   /*
     Set the error value for an id to the argument. Even if the error value is
     `null`/`undefined`, it'll still register as having an error.
   */
-  setIdLoading(id: string) {
-    return this.setIdLoadingKey(null, id);
+  setIdLoading(id: string, isLoading: ?boolean) {
+    return this.setIdLoadingKey(null, id, isLoading);
   }
-  setIdLoadingKey(key: ?string, id: string) {
+  setIdLoadingKey(key: ?string, id: string, isLoading: ?boolean) {
+    const data: $Shape<t.HrStateDesc<any>> = {
+      hasError: false,
+      error: null,
+      loading: isLoading !== false,
+    };
+
+    if (isLoading !== false) {
+      data.loadingStartTime = this.time;
+    } else {
+      data.loadingCompleteTime = this.time;
+    }
+
     this.ops.push({
       type: 'updateIdDesc',
       key: t.getKey(key),
       id,
-      data: {
-        hasError: false,
-        error: null,
-        loading: true,
-        loadingStartTime: Date.now(),
-      },
+      data,
     });
+
+    return this;
   }
 
   /*
@@ -184,9 +269,6 @@ export class HrStateWrapper {
     if (!ops.length) return this.state;
     this.ops = [];
 
-    // Cache this in case our code spans 2+ms, and gives better perf
-    const now = process.env.NODE_ENV === 'test' ? 1514862765212 : Date.now();
-
     // Track which things we've cloned to improve performance, and avoid
     // cloning objects that don't need to be cloned.
     const cloned = { id: false, lists: false, kv: false };
@@ -214,7 +296,7 @@ export class HrStateWrapper {
 
         for (let j = 0; j < op.data.length; j += 1) {
           const pair = op.data[j];
-          state.byId[key][pair[0]] = makeHrStateDesc(pair[1], { loadingCompleteTime: now });
+          state.byId[key][pair[0]] = makeHrStateDesc(pair[1], { loadingCompleteTime: this.time });
         }
       }
 
@@ -230,7 +312,7 @@ export class HrStateWrapper {
 
         state.lists[key] = makeHrStateDesc(
           op.data,
-          { loadingCompleteTime: now },
+          { loadingCompleteTime: this.time },
         );
       }
 
@@ -272,5 +354,17 @@ export class HrStateWrapper {
     this.computedState = state;
 
     return state;
+  }
+
+  /*
+    Set the time we use for loading states. By default, it's `Date.now()` at
+    the time the `HrStateWrapper` constructor is called.
+
+    In unit tests (`NODE_ENV === 'test'`) the time will be set to `1500000000000`
+    (2017-07-14T02:40:00.000Z).
+  */
+  setTime(time: number) {
+    this.time = time;
+    return this;
   }
 }
