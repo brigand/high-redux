@@ -14,17 +14,24 @@ export default class HrQuery {
   path: HrQueryPath;
 
   /*
-    Create an HrQuery for the given object, which often implements the HrState
-    interface. Most methods don't work on any other object.
+    Create an HrQuery for an object implementing the `HrState` interface. Omit the second argument.
   */
-  constructor(stateTree: Object, path: ?HrQueryPath) {
+  constructor(stateTree: t.HrState, path: ?HrQueryPath) {
     this.st = stateTree
     this.path = path || makePath();
   }
 
 
   /*
-    Scope the query to a specific key
+    Scope the query to a specific key.
+
+    ```javascript
+    // in a reducer
+    s.key('some-key').setId('some-id', someValue)
+
+    // then later query it
+    q.key('some-key').id('some-id') // returns `someValue`
+    ```
   */
   key(key: string): HrQuery {
     const path = {
@@ -37,6 +44,10 @@ export default class HrQuery {
 
   /*
     Get the value with the specified id, or null if it doesn't exist.
+
+    ```javascript
+    q.id('foo')
+    ```
   */
   id(id: string) {
     const desc = this.idDesc(id);
@@ -47,13 +58,32 @@ export default class HrQuery {
     Get a record by id, and return an object with a set of props that can be
     passed to a React component or similar.
 
-    For example, var p = propsById(someId); p.data is the data, and p.dataLoading
+    For example, var p = q.idProps(someId); p.data is the data, and p.dataLoading
     is the loading boolean.
 
     A name can be specified, which will be the prefix of the prop names.
 
-    var p = propsById(someId, 'foo') gives p.foo as the main data, and p.fooLoading
-    as the loading boolean.
+    ```javascript
+    q.idProps('some-user-id')
+
+    // gives:
+    {
+      data: { first: 'John', last: 'Smith' },
+      dataHasError: false,
+      dataError: null,
+      dataLoading: false,
+      dataEtc: { myCustomMetadata: true },
+    }
+
+    q.idProps('some-user-id', 'foo')
+
+    // gives:
+    {
+      foo: { first: 'John', last: 'Smith' },
+      fooHasError: false,
+      // ...
+    }
+    ```
   */
   idProps(id: string, name: string = 'data') {
     const desc = this.idDesc(id);
@@ -65,7 +95,7 @@ export default class HrQuery {
       [`${name}Error`]: desc.error,
       [`${name}HasError`]: desc.hasError,
       [`${name}Loading`]: desc.loading,
-      [`${name}Meta`]: desc.etc || {},
+      [`${name}Etc`]: desc.etc || {},
     };
 
     return props;
@@ -82,14 +112,8 @@ export default class HrQuery {
     return desc.value;
   }
 
-  listDesc() {
-    const key = t.getKey(this.path.key);
-    const desc = this.st.lists[key];
-    return desc || null;
-  }
-
   /*
-    Get props for the list state. See the propsById docs for an example
+    Get props for the list state. See the `q.idProps` docs for an example
     of how this works.
   */
   listProps(name: string = 'items') {
@@ -102,19 +126,85 @@ export default class HrQuery {
       [`${name}Error`]: desc.error || null,
       [`${name}HasError`]: desc.hasError || false,
       [`${name}Loading`]: desc.loading || false,
-      [`${name}Meta`]: desc.etc || {},
+      [`${name}Etc`]: desc.etc || {},
     };
 
     return props;
   }
 
+  /*
+    Gets the value for the key/value pair
+
+    ```javascript
+    q.kv('some-key') // => someValue
+    ```
+  */
+  kv(key: string) {
+    const desc = this.kvDesc(key);
+    if (!desc) return null;
+
+    return desc.value;
+  }
+
+  /*
+    Get props for the key/value pair. See the `idProps` docs.
+
+    An exception here is that if you don't specify a name, and the first argument
+    is a valid identifier, we'll use that as the prefix.
+
+    If you don't specify a second argument, and the first argument isn't a valid
+    identifier, this function will throw. This addresses a common case where
+    you have hard-coded key names in your key/value pair.
+  */
+  kvProps(key: string, name: ?string = null) {
+    let finalName = name;
+    if (!finalName) {
+      if (/^[a-zA-Z_][a-zA-Z_0-9]*$/.test(key)) {
+        finalName = key;
+      } else {
+        throw new Error(`HrQuery::kvProps expected either the second argument to be provided, or for the first argument to be a valid identifier.`);
+      }
+    }
+    const desc = this.kvDesc(key);
+
+    if (!desc) return {};
+
+    const props = {
+      [finalName]: desc.value,
+      [`${finalName}Error`]: desc.error,
+      [`${finalName}HasError`]: desc.hasError,
+      [`${finalName}Loading`]: desc.loading,
+      [`${finalName}Etc`]: desc.etc || {},
+    };
+
+    return props;
+  }
+
+  /*
+    Mostly for internal use.
+
+    Gets the `HrStateDesc` object for the specified id, or null.
+  */
   idDesc(id: string) {
     const desc = this.st.byId[t.getKey(this.path.key)][id];
     return desc || null;
   }
 
   /*
-    Get the state descriptor for the list. Mostly for internal use.
+    Mostly for internal use.
+
+    Gets the `HrStateDesc` object for the current list.
+  */
+  listDesc() {
+    const key = t.getKey(this.path.key);
+    const desc = this.st.lists[key];
+    return desc || null;
+  }
+
+  /*
+    Mostly for internal use.
+
+    Gets the `HrStateDesc` object for the current list, or null.
   */
   listDesc() {
     const desc = this.st.lists[t.getKey(this.path.key)];
@@ -122,7 +212,9 @@ export default class HrQuery {
   }
 
   /*
-    Get the state descriptor for the given key/value pair. Mostly for internal use.
+    Mostly for internal use.
+
+    Gets the `HrStateDesc` object for the specified key in the key/value pair.
   */
   kvDesc(id: string) {
     const desc = this.st.kv[t.getKey(this.path.key)][id];
