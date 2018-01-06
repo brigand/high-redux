@@ -75,8 +75,8 @@ function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
   return {
     isHrStatePath: true,
     type: parent ? parent.path.type : null,
+    typeValue: parent ? parent.path.typeValue : null,
     key: parent ? parent.path.key : null,
-    id: parent ? parent.path.id : null,
     info,
     parent,
   };

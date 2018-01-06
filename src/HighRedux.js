@@ -1,5 +1,5 @@
 // @flow
-import { HrStateWrapper, makeDefaultHrState } from './HrStateWrapper'
+import { HrStateWrapper, wrapperFromState, makeDefaultHrState } from './HrStateWrapper'
 import HrQuery from './HrQuery';
 import withProps from './withProps';
 
@@ -34,7 +34,7 @@ export function makeHr(opts: Opts): HighReducerRes {
     const handler = actions[action.type];
     if (!handler) return state;
 
-    const hrState = new HrStateWrapper(state);
+    const hrState = wrapperFromState(state);
 
     const res = handler(hrState, action.payload, action);
 
