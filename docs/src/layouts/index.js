@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'gatsby-link'
 import { Container } from 'react-responsive-grid'
+import Sidebar from '../components/Sidebar'
 import './index.css';
 
 import { rhythm, scale } from '../utils/typography'
@@ -61,16 +62,50 @@ class Template extends React.Component {
     }
     return (
       <Container
-        style={{
-          maxWidth: rhythm(24),
-          padding: `${rhythm(1.5)} ${rhythm(3 / 4)}`,
-        }}
       >
-        {header}
-        {children()}
+        <div className="HR__Page">
+          <div className="HR__Sidebar">
+            <Sidebar items={this.props.data.allMarkdownRemark.edges.map(x => x.node)} />
+          </div>
+          <div
+            className="HR__Content"
+            style={{
+              maxWidth: rhythm(24),
+              padding: `${rhythm(1.5)} ${rhythm(3 / 4)}`,
+            }}
+          >
+            {header}
+            {children()}
+          </div>
+        </div>
       </Container>
     )
   }
 }
+
+export const query = graphql`
+  query SidebarQuery {
+    allMarkdownRemark(
+      limit: 2000
+      sort: { fields: [frontmatter___lesson], order: DESC }
+    ) {
+      edges {
+        node {
+          fields {
+            slug
+          }
+          excerpt
+          timeToRead
+          frontmatter {
+            title
+            tags
+            cover
+            date
+          }
+        }
+      }
+    }
+  }
+`
 
 export default Template

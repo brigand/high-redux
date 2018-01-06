@@ -1,5 +1,51 @@
 
 *:not(pre) > code {
-  font-size: 1.1em; 
+  font-size: 1.1em;
   color: #630050;
+}
+
+.HR__Page {
+  display: inline-block;
+}
+
+.HR__Sidebar {
+  width: 150px;
+  display: inline-block;
+}
+
+.HR__Content {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.Hr__SidebarToggle {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .HR__SidebarContent {
+    display: none;
+    position: absolute;
+    top: 3em;
+    right: 1em;
+    background: white;
+    padding: 1em;
+    box-shadow: -1px 1px 1px rgba(0, 0, 0, 0.3);
+  }
+
+  .HR__SidebarContent h3 {
+    margin-top: 0;
+  }
+
+  .Hr__SidebarToggle {
+    display: block;
+    position: absolute;
+    top: 0.3em;
+    right: 0.3em;
+    width: 1.3em;
+    height: 1.3em;
+    font-size: 2em;
+    z-index: 1;
+    cursor: pointer;
+  }
 }
