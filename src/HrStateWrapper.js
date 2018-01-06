@@ -26,46 +26,76 @@ export function makeHrStateDesc<T>(value: T, properties: ?$Shape<t.HrStateDesc<T
   };
 }
 
+type PathType = 'id' | 'list' | 'kv';
+type OpType = 'set' | 'setIds' | 'updateValue' | 'mergeDesc';
+
+type StateInfo = {
+  state: t.HrState,
+  ops: Array<HrStateWrapperOp>,
+  time: number,
+}
+
+type StatePath = {
+  isHrStatePath: true,
+
+  // The type of selector, defaults to null.
+  type: ?PathType,
+
+  // The value for the selector. Used by id and kv types
+  typeValue: string | null,
+
+  // The state key, which defaults to null
+  key: string | null,
+
+  info: StateInfo,
+  parent: ?HrStateWrapper,
+}
+
+// Mirrows StatePath
 type HrStateWrapperOp = {
-  type: 'setIds',
-  key: string,
-  data: Array<[string, any]>,
-} | {
-  type: 'setList',
-  key: string,
-  data: Array<any>,
-} | {
-  type: 'updateIdDesc',
-  key: string,
-  id: string,
-  data: $Shape<t.HrStateDesc<any>>,
-} | {
-  type: 'setKvMeta',
-  key: string,
-  id: string,
+  op: OpType,
   data: any,
+  type: ?PathType,
+  typeValue: string | null,
+  key: ?string,
+};
+
+
+const TEST_TIME = 1500000000000;
+
+function makeInfo(state: t.HrState): StateInfo {
+  return {
+    state,
+    ops: [],
+    time: process.env.NODE_ENV === 'test' ? TEST_TIME : Date.now(),
+  };
+}
+
+function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
+  return {
+    isHrStatePath: true,
+    type: parent ? parent.path.type : null,
+    key: parent ? parent.path.key : null,
+    id: parent ? parent.path.id : null,
+    info,
+    parent,
+  };
+}
+
+export function wrapperFromState(_state: ?t.HrState) {
+  const state: t.HrState = _state || makeDefaultHrState();
+  const info = makeInfo(state);
+  const path = makePath(info);
+  return new HrStateWrapper(path);
 }
 
 export class HrStateWrapper {
-  state: t.HrState
-  ops: Array<HrStateWrapperOp>
-  time: number
-
-  // In case getState is called twice without any ops being pushed
-  computedState: ?t.HrState;
-
+  path: StatePath
   /*
     Creates a HrStateWrapper instance. This is typically done for you.
   */
-  constructor(state: ?t.HrState) {
-    this.state = state || makeDefaultHrState();
-
-    if (process.env.NODE_ENV === 'test') {
-      this.setTime(1500000000000);
-    } else {
-      this.setTime(Date.now());
-    }
-    this.ops = [];
+  constructor(path: StatePath) {
+    this.path = path;
   }
 
   /*
@@ -78,45 +108,54 @@ export class HrStateWrapper {
   }
 
   /*
-    Get an HrQuery object for the state.
-
-    The argument `type` indicates which version of the state to use.
-
-    By default, type is `'initial'`, where it uses the initial state passed to
-    `HrState`, ignoring any queued operations on the state. Most of the time,
-    this is what you want.
-
-    The `'cached'` variation is very rarely useful, but it gives the state snapshot
-    from the last time `getState` was called.
-
-    The `'compute'` option applies all pending state updates by calling `getState`,
-    and gives an `HrQuery` of the result.
-
-    To understand the differences, say we have a key/value of `'x'` set to `'foo'` from a previous
-    call to the action handler, and then this code is running:
-
-    The following (or omitting the argument to .query) gives `'foo'`.
-
-    ```javascript
-    s.setKv('x', 'bar')
-      .query('initial') // or .query() with no args
-      .getKv('x')
-    ```
-
-    Where here, where we pass `'compute'`, it gives '`bar'`.
-
-    ```javascript
-    s.setKv('x', 'bar')
-      .query('compute')
-      .getKv('x')
-    ```
+    Returns a state wrapper for the specified `id`
   */
-  query(type: ('initial' | 'cached' | 'compute') = 'initial') {
-    let state = this.state;
-    if (type === 'cached' && this.computedState) state = this.computedState;
-    if (type === 'compute') state = this.getState();
+  id(id: string) {
+    const path = makePath(this.path.info, this);
+    path.type = 'id';
+    path.typeValue = id;
+    return new HrStateWrapper(path);
+  }
 
-    return new HrQuery(state);
+  /*
+    Returns a state wrapper for the specified `id`
+  */
+  list() {
+    const path = makePath(this.path.info, this);
+    path.type = 'list';
+    path.typeValue = null;
+    return new HrStateWrapper(path);
+  }
+
+  /*
+    Returns a state wrapper for the specified `id`
+  */
+  kv(kvKey: string) {
+    const path = makePath(this.path.info, this);
+    path.type = 'kv';
+    path.typeValue = kvKey;
+    return new HrStateWrapper(path);
+  }
+
+  key(key: string) {
+    const path = makePath(this.path.info, this);
+    path.key = key;
+    return new HrStateWrapper(path);
+  }
+
+  /*
+    Get an HrQuery object for the state.
+  */
+  query() {
+    return new HrQuery(this.path.info.state);
+  }
+
+  /*
+    Sets the currently focused item, e.g. `s.id(x.id).set(x)` would set that item.
+  */
+  set(value: any) {
+    this._pushOp('set', value);
+    return this;
   }
 
   /*
@@ -129,242 +168,166 @@ export class HrStateWrapper {
     s.setIdPairs(items.map(x => [x.id, x]))
     ```
   */
-  setIdPairs(pairs: Array<[string, any]>) {
-    return this.setIdPairsKey(null, pairs);
-  }
-  setIdPairsKey(key: ?string, pairs: Array<[string, any]>) {
-    if (!Array.isArray(pairs)) {
-      throw new Error(`HrStateWrapper::setIdPairs expected the second argument to be an array but got ${pairs}`);
-    }
-    this.ops.push({ type: 'setIds', key: t.getKey(key), data: pairs });
-    return this;
-  }
-
-  /*
-    Store a mapping of the id to the value.
-  */
-  setById(id: string, value: any) {
-    return this.setByIdKey(null, id, value);
-  }
-  setByIdKey(key: ?string, id: string, value: any) {
-    if (arguments.length < 3) {
-      throw new Error(`HrStateWrapper::setById expects args (key: ?string, id: string, value: any) but received ${arguments.length} args`);
-    }
-    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), id, data: { value, loading: false, loadingCompleteTime: this.time } });
+  setIds(pairs: Array<[string, any]>) {
+    this._pushOp('setIds', pairs, { type: 'id' });
     return this;
   }
 
   /*
     Update an item with the given id by passing it to the 'updater' function
   */
-  updateById(id: string, updater: Function) {
-    return this.updateByIdKey(null, id, updater);
+  update(updater: Function) {
+    this._pushOp('updateValue', updater);
   }
 
-  updateByIdKey(key: ?string, id: string, updater: Function) {
-    const value = updater(this._getById(key, id));
+  // TODO: implement when HrQuery also supports paths
+  // get() {
+  //   return new HrQuery(this.state).valueByIdKey(t.getKey(key), id) || null;
+  // }
 
-    // Not sure why we can't make value nullable
-    // $FlowFixMe
-    this.ops.push({ type: 'updateIdDesc', key: t.getKey(key), data: { value } });
+  setLoading(finished: boolean = false) {
+    const desc: Object = { hasError: false, loading: finished };
+    if (finished) {
+      desc.loadingCompleteTime = this.path.info.time;
+    } else {
+      desc.loadingStartTime = this.path.info.time;
+    }
 
-    return this;
+    this._pushOp('mergeDesc', desc);
   }
 
-  _getById(key: ?string, id: string) {
-    return new HrQuery(this.state).valueByIdKey(t.getKey(key), id) || null;
-  }
-
-  /*
-    Set the error value for an id to the argument. Even if the error value is
-    `null`/`undefined`, it'll still register as having an error.
-  */
-  setIdLoading(id: string, isLoading: ?boolean) {
-    return this.setIdLoadingKey(null, id, isLoading);
-  }
-  setIdLoadingKey(key: ?string, id: string, isLoading: ?boolean) {
-    const data: $Shape<t.HrStateDesc<any>> = {
-      hasError: false,
-      error: null,
-      loading: isLoading !== false,
+  setError(error: ?any) {
+    const desc: Object = {
+      hasError: error != null,
+      error: error,
+      loading: false,
+      loadingCompleteTime: this.path.info.time,
     };
 
-    if (isLoading !== false) {
-      data.loadingStartTime = this.time;
-    } else {
-      data.loadingCompleteTime = this.time;
-    }
-
-    this.ops.push({
-      type: 'updateIdDesc',
-      key: t.getKey(key),
-      id,
-      data,
-    });
-
-    return this;
+    this._pushOp('mergeDesc', desc);
   }
 
-  /*
-    Set the error value for an id to the argument. Even if the error value is
-    null/undefined, it'll still register as having an error.
-  */
-  setIdError(id: string, error?: any) {
-    return this.setIdErrorKey(null, id, error);
-  }
-  setIdErrorKey(key: ?string, id: string, error?: any) {
-    this.ops.push({
-      type: 'updateIdDesc',
-      key: t.getKey(key),
-      id,
-      data: {
-        hasError: !!error,
-        error,
-      },
-    });
-  }
-
-  /*
-    Store a list, typically containing id strings, but can be any value.
-  */
-  setList(items: Array<any>) {
-    return this.setListKey(null, items);
-  }
-  setListKey(key: ?string, items: Array<any>) {
-    if (!Array.isArray(items)) {
-      throw new Error(`HrStateWrapper::setList expected the second argument to be an array but got ${items}`);
-    }
-    this.ops.push({ type: 'setList', key: t.getKey(key), data: items });
-  }
-
-  /*
-    Sets a simple key/value pair
-  */
-  setKv(id: string, value: any) {
-    return this.setKvKey(null, id, value);
-  }
-  setKvKey(key: ?string, id: string, value: any) {
-
-    this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: { value } });
-    return this;
-  }
-
-  /*
-    Sets metadata for the key, e.g. `setKvMeta(id, { loading: true, etc: { anything: 1 } })`
-  */
-  setKvMeta(id: string, value: $Shape<t.HrStateDesc<any>>) {
-    return this.setKvMetaKey(null, id, value);
-  }
-  setKvMetaKey(key: ?string, id: string, value: $Shape<t.HrStateDesc<any>>) {
-
-    this.ops.push({ type: 'setKvMeta', key: t.getKey(key), id, data: value });
-    return this;
+  setMeta(data: Object) {
+    this._pushOp('mergeDesc', { etc: data });
   }
 
   /*
     Compute the state by applying all update operations. Mostly for internal use.
   */
   getState(): Object {
-    const { ops } = this;
-    if (!ops.length) return this.state;
-    this.ops = [];
+    const sw: HrStateWrapper = this.root();
+    let { state, ops } = sw.path.info;
+    if (!ops.length) return state;
+
+    state = { ...state };
 
     // Track which things we've cloned to improve performance, and avoid
     // cloning objects that don't need to be cloned.
-    const cloned = { id: false, lists: false, kv: false };
+    const cloned = { id: false, list: false, kv: false };
     const clonedKey = {
       id: Object.create(null),
-      lists: Object.create(null),
+      list: Object.create(null),
       kv: Object.create(null),
     };
 
-    const state = this.computedState ? this.computedState : { ...this.state };
     for (let i = 0; i < ops.length; i += 1) {
       const op = ops[i];
 
       const key = t.getKey(op.key);
 
-      if (op.type === 'setIds') {
-        if (!cloned.id) {
-          state.byId = { ...state.byId };
-          cloned.id = true;
-        }
-        if (!clonedKey.id[key]) {
-          state.byId[key] = { ...state.byId[key] };
-          clonedKey.id[key] = true;
+      if (op.type === 'id' || op.type === 'kv') {
+        const stateKey = op.type === 'id' ? 'byId' : 'kv';
+        if (!cloned[op.type]) {
+          cloned[op.type] = true;
+          state[stateKey] = { ...state.byId };
         }
 
-        for (let j = 0; j < op.data.length; j += 1) {
-          const pair = op.data[j];
-          state.byId[key][pair[0]] = makeHrStateDesc(pair[1], { loadingCompleteTime: this.time });
+        if (!clonedKey[op.type][key]) {
+          clonedKey[op.type][key] = true;
+          state[stateKey][key] = { ...state[stateKey][key] };
+        }
+
+        if (op.op === 'set') {
+          const opts: $Shape<t.HrStateDesc<any>> = {};
+          opts.loadingCompleteTime = this.path.info.time;
+          // $FlowFixMe
+          if (state[stateKey][key][op.typeValue]) {
+            opts.loadingStartTime = state[stateKey][key][op.typeValue].loadingStartTime;
+          }
+
+          // $FlowFixMe
+          state[stateKey][key][op.typeValue] = makeHrStateDesc(op.data, opts);
+        }
+
+        if (op.op === 'setIds') {
+          for (let i = 0; i < op.data.length; i += 1) {
+            const pair = op.data[i];
+            state[stateKey][key][pair[0]] = makeHrStateDesc(pair[1]);
+          }
+        }
+
+        if (op.op === 'mergeDesc') {
+          // $FlowFixMe
+          const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
+          Object.assign(desc, op.data);
+          // $FlowFixMe
+          state[stateKey][key][op.typeValue] = desc;
         }
       }
 
-      if (op.type === 'setList') {
-        if (!cloned.lists) {
+      if (op.type === 'list') {
+        if (!cloned.list) {
+          cloned.list = true;
           state.lists = { ...state.lists };
-          cloned.lists = true;
-        }
-        if (!clonedKey.lists[key]) {
-          state.lists[key] = { ...state.lists[key] };
-          clonedKey.lists[key] = true;
         }
 
-        state.lists[key] = makeHrStateDesc(
-          op.data,
-          { loadingCompleteTime: this.time },
-        );
-      }
-
-      if (op.type === 'updateIdDesc') {
-        if (!cloned.id) {
-          state.byId = { ...state.byId };
-          cloned.id = true;
-        }
-        if (!clonedKey.id[key]) {
-          state.byId[key] = { ...state.byId[key] };
-          clonedKey.id[key] = true;
+        if (op.op === 'set') {
+          const opts: $Shape<t.HrStateDesc<any>> = {};
+          opts.loadingCompleteTime = this.path.info.time;
+          // $FlowFixMe
+          if (state.lists[key]) {
+            opts.loadingStartTime = state.lists[key].loadingStartTime;
+          }
+          // $FlowFixMe
+          state.lists[key] = makeHrStateDesc(op.data, opts);
         }
 
-        state.byId[key] = state.byId[key] || {};
-
-        state.byId[key][op.id] = state.byId[key][op.id]
-          ? { ...state.byId[key][op.id], ...op.data }
-          : makeHrStateDesc(null, op.data);
-      }
-
-      if (op.type === 'setKvMeta') {
-        if (!cloned.kv) {
-          state.kv = { ...state.kv };
-          cloned.kv = true;
+        if (op.op === 'mergeDesc') {
+          // $FlowFixMe
+          const desc = state.lists[key] ? { ...state[stateKey][key] } : makeHrStateDesc(null);
+          Object.assign(desc, op.data);
+          // $FlowFixMe
+          state[stateKey][key] = desc;
         }
-        if (!clonedKey.kv[key]) {
-          state.kv[key] = { ...state.kv[key] };
-          clonedKey.kv[key] = true;
-        }
-
-        state.kv[key] = state.kv[key] || {};
-
-        state.kv[key][op.id] = state.kv[key][op.id]
-          ? { ...state.kv[key][op.id], ...op.data }
-          : makeHrStateDesc(null, op.data);
       }
     }
-
-    this.computedState = state;
 
     return state;
   }
 
   /*
-    Set the time we use for loading states. By default, it's `Date.now()` at
-    the time the `HrStateWrapper` constructor is called.
-
-    In unit tests (`NODE_ENV === 'test'`) the time will be set to `1500000000000`
-    (2017-07-14T02:40:00.000Z).
+    Get the root `HrStateWrapper` instance.
   */
-  setTime(time: number) {
-    this.time = time;
-    return this;
+  root() {
+    let wrapper: HrStateWrapper = this;
+    while (wrapper.path.parent) {
+      wrapper = wrapper.path.parent;
+    }
+
+    return wrapper;
+  }
+
+  /*
+    Internal: adds an operation to the queue
+  */
+  _pushOp(op: OpType, data: any, overrides: $Shape<HrStateWrapperOp> = {}) {
+    this.path.info.ops.push({
+      op,
+      key: this.path.key,
+      type: this.path.type,
+      typeValue: this.path.typeValue,
+      data,
+      ...overrides,
+    });
   }
 }

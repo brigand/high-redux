@@ -1,13 +1,13 @@
-import { HrStateWrapper } from '../HrStateWrapper';
+import { wrapperFromState } from '../HrStateWrapper';
 import { getKey } from '../types';
 
 describe(`HrStateWrapper basic`, () => {
   it(`doesn't error`, () => {
-    const s = new HrStateWrapper();
-    s.setIdPairs([['some-id', 'some-value']]);
-    s.setById('another-id', 'another-value');
-    s.setIdError('another-id', { message: 'test error' });
-    s.setList(['some-id', 'another-id']);
+    const s = wrapperFromState();
+    s.setIds([['some-id', 'some-value']]);
+    s.id('another-id').set('another-value');
+    s.id('another-id').setError({ message: 'test error' });
+    s.list().set(['some-id', 'another-id']);
     const state = s.getState();
 
     expect(state).toBeInstanceOf(Object);
@@ -16,19 +16,19 @@ describe(`HrStateWrapper basic`, () => {
 });
 
 describe(`HrStateWrapper id`, () => {
-  it(`setIdPairs`, () => {
-    const s = new HrStateWrapper();
-    s.setIdPairs([['idA', 'valueA'], ['idB', 'valueB']]);
+  it(`setIds`, () => {
+    const s = wrapperFromState();
+    s.setIds([['idA', 'valueA'], ['idB', 'valueB']]);
 
     const state = s.getState();
     expect(state.byId[getKey()].idA.value).toBe('valueA');
     expect(state.byId[getKey()].idB.value).toBe('valueB');
   });
 
-  it(`setById`, () => {
-    const s = new HrStateWrapper();
-    s.setIdPairs([['idA', 'valueA'], ['idB', 'valueB']]);
-    s.setById('idC', 'valueC');
+  it(`id->set`, () => {
+    const s = wrapperFromState();
+    s.setIds([['idA', 'valueA'], ['idB', 'valueB']]);
+    s.id('idC').set('valueC');
 
     const state = s.getState();
     expect(state.byId[getKey()].idA.value).toBe('valueA');
@@ -36,12 +36,12 @@ describe(`HrStateWrapper id`, () => {
     expect(state.byId[getKey()].idC.value).toBe('valueC');
   });
 
-  it(`setIdError`, () => {
-    const s = new HrStateWrapper();
+  it(`id->setError`, () => {
+    const s = wrapperFromState();
 
-    s.setById('idA', 'valueA');
-    s.setIdError('idA', 'some-error');
-    s.setIdError('idB', 'another-error');
+    s.id('idA').set('valueA');
+    s.id('idA').setError('some-error');
+    s.id('idB').setError('another-error');
 
     const state = s.getState();
     expect(state.byId[getKey()].idA.value).toBe('valueA');
@@ -53,11 +53,12 @@ describe(`HrStateWrapper id`, () => {
   });
 
   it(`alternate keys`, () => {
-    const s = new HrStateWrapper();
-    s.setByIdKey('foo', 'id', 'valueA');
-    s.setById('id', 'valueB');
-    s.setByIdKey('bar', 'id', 'valueC');
-    s.setByIdKey('bar', 'id2', 'valueD');
+    const s = wrapperFromState();
+    s.key('foo').id('id').set('valueA');
+    s.id('id').set('valueB');
+    s.id('id').set('valueB');
+    s.key('bar').id('id').set('valueC');
+    s.key('bar').id('id2').set('valueD');
 
     const state = s.getState();
     expect(state.byId[getKey('foo')].id.value).toBe('valueA');
@@ -69,8 +70,8 @@ describe(`HrStateWrapper id`, () => {
 
 describe(`HrStateWrapper list`, () => {
   it(`setList`, () => {
-    const s = new HrStateWrapper();
-    s.setList(['v1', 'v2']);
+    const s = wrapperFromState();
+    s.list().set(['v1', 'v2']);
 
     const state = s.getState();
     expect(state.lists[getKey()].value).toEqual(['v1', 'v2']);
@@ -80,8 +81,8 @@ describe(`HrStateWrapper list`, () => {
 
 describe(`HrStateWrapper kv`, () => {
   it(`setKv`, () => {
-    const s = new HrStateWrapper();
-    s.setKv('test', 'val');
+    const s = wrapperFromState();
+    s.kv('test').set('val');
 
     const state = s.getState();
     expect(state.kv[getKey()].test.value).toBe('val');
@@ -89,9 +90,9 @@ describe(`HrStateWrapper kv`, () => {
   });
 
   it(`setKvMeta`, () => {
-    const s = new HrStateWrapper();
-    s.setKv('test', 'val');
-    s.setKvMeta('test', { etc: { x: 1 } });
+    const s = wrapperFromState();
+    s.kv('test').set('val');
+    s.kv('test').setMeta({ x: 1 });
 
     const state = s.getState();
     expect(state.kv[getKey()].test.value).toBe('val');
