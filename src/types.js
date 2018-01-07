@@ -1,5 +1,8 @@
 // @flow
 'use strict';
+
+import type HrQuery from './HrQuery';
+
 export function getKey(key: ?string) {
   if (!key) return '[[default]]';
   return key;
@@ -27,3 +30,7 @@ export type HrState = {
   // TODO: implement this in some way
   // receipts: { [key: string]: any },
 }
+
+
+export type SelectorFunc = (query: HrQuery, state: Object) => any
+export type SelectorMapping = { [selectorName: string]: SelectorFunc }

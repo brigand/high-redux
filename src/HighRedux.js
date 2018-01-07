@@ -3,6 +3,8 @@
 import { HrStateWrapper, wrapperFromState, makeDefaultHrState } from './HrStateWrapper'
 import HrQuery from './HrQuery';
 import withProps from './withProps';
+import * as globalState from './globalState';
+import * as t from './types';
 
 export * from './HrStateWrapper';
 export * from './types';
@@ -11,7 +13,23 @@ export { withProps };
 
 
 // Convenience function
-export const query = (data) => new HrQuery(data);
+export const query = (state: Object, key: ?string = null): HrQuery => {
+  let adjustedState = state;
+  if (!adjustedState.isHrState && key) {
+    adjustedState = state[key];
+  }
+
+  if (!adjustedState.isHrState) {
+    if (key) {
+      throw new Error(`Neither state nor state[key] (key is second argument) returned an HrState object`);
+    } else {
+      throw new Error(`Attempted to make a query for a non-HrState object with no key (second argument) provided`);
+    }
+  }
+
+  const queryClass = key && globalState.get().hrQueryClasses[key] || HrQuery;
+  return new queryClass(adjustedState);
+}
 
 export type HighReducerRes = {
   reducer: (state: ?Object, action: Object) => Object,
@@ -24,10 +42,11 @@ export type Opts = {
   list?: boolean,
   byId?: boolean,
   actions: {[actionName: string]: ActionHandler},
+  selectors: t.SelectorMapping,
 }
 
 export function makeHr(opts: Opts): HighReducerRes {
-  const { name, actions } = opts;
+  const { name, actions, selectors } = opts;
 
   function reducer(_state: ?Object, action: Object): Object {
     const state = _state || makeDefaultHrState();
@@ -48,10 +67,72 @@ export function makeHr(opts: Opts): HighReducerRes {
     return resState;
   }
 
-  function addToObject(obj) {
+  function addToObject(obj, opts = {}) {
     obj[name] = reducer;
+
+    const hrQueryClasses = globalState.get().hrQueryClasses;
+    if (name && !opts.noBindSelectors) {
+      if (hrQueryClasses[name]) {
+        throw new Error(`Attempted to addToObject twice with the same name. Can't bind selectors. To disable the global selector binding do addToObject(reducers, { noBindSelectors: true })`);
+      }
+
+      class HrQueryForSelectors extends HrQuery {
+        constructor(...args) {
+          super(...args);
+        }
+      }
+
+      const selectorNames = Object.keys(selectors);
+      for (let i = 0; i < selectorNames.length; i += 1) {
+        const selName = selectorNames[i];
+
+        // $FlowFixMe
+        if (HrQueryForSelectors.prototype[name]) {
+          throw new Error(`Selector named ${selName} for hr state ${name} conflicts with an HrQuery method`);
+        }
+
+        const original = selectors[selName];
+        function wrappedSelector(...args) {
+          original(this, ...args);
+        }
+
+        Object.defineProperty(wrappedSelector, 'name', {
+          configurable: true,
+          writable: true,
+          enumerable: true,
+          value: `hrWrappedSel:${name}:${selName}`,
+        });
+
+        Object.defineProperty(HrQueryForSelectors.prototype, selName, {
+          configurable: true,
+          writable: true,
+          value: wrappedSelector,
+        });
+      }
+
+      hrQueryClasses[name] = HrQueryForSelectors;
+    }
+
     return obj;
   }
 
-  return { name, reducer, addToObject };
+  function getQuery(reduxState: Object) {
+    const hrQueryClasses = globalState.get().hrQueryClasses;
+
+    if (!name) {
+      throw new Error(`getQuery called on a HighRedux with no 'name' provided at creation time.`);
+    }
+
+    const queryClass = hrQueryClasses[name] || HrQuery;
+
+    let selfState = reduxState.isHrState ? reduxState : reduxState[name];
+
+    return new queryClass(selfState);
+  }
+
+  return { name, reducer, addToObject, getQuery };
+}
+
+export const cleanGlobalState = () => {
+  globalState.clear();
 }

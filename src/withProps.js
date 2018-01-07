@@ -6,11 +6,12 @@ import { connect } from 'react-redux';
 import buildDispatcherComponent, { type DispatchComponentOp } from './buildDispatcherComponent';
 import HrQuery from './HrQuery';
 import * as t from './types';
+import * as globalState from './globalState';
 
 const DO_SPREAD = '[[spread]]';
 
-function queryOrIdentity(value: any) {
-  if (value && value.isHrState) return new HrQuery(value);
+function queryOrIdentity(value: any, queryClass: typeof HrQuery) {
+  if (value && value.isHrState) return new queryClass(value);
   return value;
 }
 
@@ -276,11 +277,17 @@ class SelectOp extends BaseStateOp {
 }
 
 function wrapWholeStateInQueries(state) {
+  const hrQueryClasses = globalState.get().hrQueryClasses;
+
   const keys = Object.keys(state);
   const out = {};
   for (let i = 0; i < keys.length; i += 1) {
     const key = keys[i];
-    out[key] = queryOrIdentity(state[key]);
+
+    let queryClass = HrQuery;
+    if (hrQueryClasses[key]) queryClass = hrQueryClasses[key];
+
+    out[key] = queryOrIdentity(state[key], queryClass);
   }
   return out;
 }
