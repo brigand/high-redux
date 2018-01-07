@@ -16,7 +16,7 @@ describe(`HrQuery byId`, () => {
       fooError: null,
       fooHasError: false,
       fooLoading: false,
-      fooMeta: {},
+      fooEtc: {},
     });
   });
 });
@@ -38,7 +38,7 @@ describe(`HrQuery list`, () => {
       fooError: null,
       fooHasError: false,
       fooLoading: false,
-      fooMeta: {},
+      fooEtc: {},
     });
   });
 });

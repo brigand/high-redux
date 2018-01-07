@@ -364,7 +364,7 @@ export class HrStateWrapper {
           const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
           Object.assign(desc, op.data);
           // $FlowFixMe
-          state[stateKey][key] = desc;
+          state.lists[key] = desc;
         }
 
         if (op.op === 'setInDesc') {
@@ -377,7 +377,7 @@ export class HrStateWrapper {
           final[op.data.path[op.data.path.length - 1]] = op.data.value;
 
           // $FlowFixMe
-          state[stateKey][key] = desc;
+          state.lists[key] = desc;
         }
       }
     }

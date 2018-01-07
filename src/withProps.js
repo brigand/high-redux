@@ -6,6 +6,8 @@ import buildDispatcherComponent, { type DispatchComponentOp } from './buildDispa
 import HrQuery from './HrQuery';
 import * as t from './types';
 
+const DO_SPREAD = '[[spread]]';
+
 function queryOrIdentity(value: any) {
   if (value && value.isHrState) return new HrQuery(value);
   return value;
@@ -81,6 +83,10 @@ export class PropData {
     }
 
     throw new Error(`select expects 1 or more strings, or 1 or more functions but recieved ${args.map(x => typeof x).join(', ')}`);
+  }
+
+  selectProps(...args: Array<any>) {
+    return this.select(DO_SPREAD, ...args);
   }
 
   bindAction(propName: string, getAction: Function) {
@@ -260,7 +266,7 @@ class SelectOp extends BaseStateOp {
   }
 
   _applyRes(resProps, data) {
-    if (data && data['high-redux:do-spread']) {
+    if (this.propName === DO_SPREAD) {
       Object.assign(resProps, data);
     } else {
       resProps[this.propName] = data;
