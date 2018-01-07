@@ -4,7 +4,7 @@ const fs = require('fs');
 const glob = require('glob');
 
 const mdFiles = (() => {
-  const files = glob.sync('content/**/*.md');
+  const files = glob.sync('src/pages/**/*.md');
   const filter = process.argv.slice(2).find(x => x && x[0] !== '-');
 
   if (filter) {

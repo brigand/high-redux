@@ -107,16 +107,8 @@ Get the list for the current key. Always returns an array, but it may be empty
 
 Signature: `.listProps(name: string = 'items')`
 
-Get the descriptor for
-listDesc() {
-  const key = t.getKey(this.path.key);
-  const desc = this.st.lists[key];
-  return desc || null;
-}
-
-/*
-  Get props for the list state. See the `q.idProps` docs for an example
-  of how this works.
+Get props for the list state. See the `q.idProps` docs for an example
+of how this works.
 
 
 
@@ -154,6 +146,16 @@ Signature: `.idDesc(id: string)`
 Mostly for internal use.
 
 Gets the `HrStateDesc` object for the specified id, or null.
+
+
+
+### `HrQuery::listDesc`
+
+Signature: `.listDesc()`
+
+Mostly for internal use.
+
+Gets the `HrStateDesc` object for the current list.
 
 
 

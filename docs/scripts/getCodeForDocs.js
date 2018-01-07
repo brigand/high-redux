@@ -16,7 +16,7 @@ const files = [
 async function getCode(_target) {
   let target = _target;
 
-  if (!target) target = `../high-redux`;
+  if (!target) target = `..`;
 
   if (target[0] === '.' || target[0] === '/') {
     // eslint-disable-next-line

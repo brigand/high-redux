@@ -87,7 +87,7 @@ export const query = graphql`
   query SidebarQuery {
     allMarkdownRemark(
       limit: 2000
-      sort: { fields: [frontmatter___lesson], order: DESC }
+      sort: { fields: [frontmatter___lesson], order: ASC }
     ) {
       edges {
         node {
@@ -98,9 +98,6 @@ export const query = graphql`
           timeToRead
           frontmatter {
             title
-            tags
-            cover
-            date
           }
         }
       }
