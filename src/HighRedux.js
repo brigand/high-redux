@@ -93,7 +93,7 @@ export function makeHr(opts: Opts): HighReducerRes {
 
         const original = selectors[selName];
         function wrappedSelector(...args) {
-          original(this, ...args);
+          return original(this, ...args);
         }
 
         Object.defineProperty(wrappedSelector, 'name', {
