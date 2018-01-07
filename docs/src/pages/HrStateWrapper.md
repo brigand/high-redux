@@ -15,7 +15,7 @@ tags:
 
 ## Basics
 
-You get `HrStateWrapper` instances inside the action handlers in [`makeHr`](/high-redux-docs/makeHr).
+You get `HrStateWrapper` instances inside the action handlers in [`makeHr`](/makeHr).
 
 The wrapper allows you to perform efficient, high level updates to the state object without
 mutation.

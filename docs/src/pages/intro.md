@@ -35,7 +35,7 @@ in the bundle.
 
 ## makeHr
 
-The first abstraction is [`makeHr`](/high-redux-docs/make-hr) which creates an entity. This includes a reducer
+The first abstraction is [`makeHr`](/makeHr) which creates an entity. This includes a reducer
 and selectors for that reducer. Unlike reducers you might write by hand, we generate
 a highly flexible and future-proof state shape, while allowing you to ignore that
 in the basic cases of retrieving a value by id or similar.
@@ -62,11 +62,11 @@ const userHr = makeHr({
 });
 ```
 
-For more information, see the [`makeHr`](/high-redux-docs/make-hr) documentation.
+For more information, see the [`makeHr`](/makeHr) documentation.
 
 ## withProps
 
-The second abstraction is [`withProps`](/high-redux-docs/with-props) which is a wrapper around `react-redux`'s `connect`.
+The second abstraction is [`withProps`](/withProps) which is a wrapper around `react-redux`'s `connect`.
 
 ```javascript
 const UserDisplay = (props) => (
@@ -100,4 +100,4 @@ This can be a significant performance boost.
 The `.select` function has extra potential which will be explained in the `withProps`
 and `HrQuery` docs.
 
-For more information, see the [`withProps`](/high-redux-docs/with-props) documentation.
+For more information, see the [`withProps`](/withProps) documentation.

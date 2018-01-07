@@ -17,7 +17,7 @@ tags:
 ## Basics
 
 HrState is the internal data shape for your high-redux reducers. Normally you
-don't interact with it directly, but instead go through the the [HrQuery](/high-redux-docs/hr-query)
+don't interact with it directly, but instead go through the the [HrQuery](/HrQuery)
 interface. Documenting it here might help you understand how high-redux works.
 
 We'll start with the formal type definition, and then go into examples. Note that

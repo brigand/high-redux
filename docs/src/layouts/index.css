@@ -49,3 +49,7 @@
     cursor: pointer;
   }
 }
+
+h2[id] > a, h3[id] > a, h4[id] > a, h5[id] > a, h6[id] > a {
+  background-image: none !important;
+}

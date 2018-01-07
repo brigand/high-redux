@@ -50,14 +50,14 @@ Each property of the `'actions'` object is the type of an action. In this exampl
 we have `'FETCH_USER_SUCCESS'`. You can define as many actions as you like.
 
 Your action handlers receive three arguments. `s` is an
-[`HrStateWrapper`](/high-redux-docs/hr-state-wrapper) instance. You use it to modify the previous
+[`HrStateWrapper`](/HrStateWrapper) instance. You use it to modify the previous
 state, producing a new state that the reducer will return.
 
 The second argument, `'payload'`, is simply the action's `'payload'` property,
 exposed here for convenience.
 
 The third argument is the original, unmodified action. For the bulk of the work here,
-see the [`HrStateWrapper`](/high-redux-docs/hr-state-wrapper) documentation.
+see the [`HrStateWrapper`](/HrStateWrapper) documentation.
 
 ## Selectors
 
