@@ -337,6 +337,20 @@ export class HrStateWrapper {
           state[stateKey][key][op.typeValue] = makeHrStateDesc(op.data, opts);
         }
 
+        if (op.op === 'updateValue') {
+          // $FlowFixMe
+          const currentDesc = state[stateKey][key][op.typeValue];
+          if (currentDesc) {
+            const current = currentDesc.value;
+            const updateData = op.data(current);
+            if (updateData != null) {
+              const value = { ...current, ...updateData };
+              // $FlowFixMe
+              state[stateKey][key][op.typeValue] = { ...currentDesc, value };
+            }
+          }
+        }
+
         if (op.op === 'setIds') {
           for (let i = 0; i < op.data.length; i += 1) {
             const pair = op.data[i];
