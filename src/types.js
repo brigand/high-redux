@@ -1,5 +1,5 @@
 // @flow
-
+'use strict';
 export function getKey(key: ?string) {
   if (!key) return '[[default]]';
   return key;

@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import type { ComponentType } from 'react';
 import { createSelector } from 'reselect';
 import { connect } from 'react-redux';

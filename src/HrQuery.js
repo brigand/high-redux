@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import * as t from './types';
 
 type HrQueryPath = {

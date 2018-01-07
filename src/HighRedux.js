@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import { HrStateWrapper, wrapperFromState, makeDefaultHrState } from './HrStateWrapper'
 import HrQuery from './HrQuery';
 import withProps from './withProps';

@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import * as React from 'react';
 import * as PT from 'prop-types';
 import shallowEqual from 'shallowequal';

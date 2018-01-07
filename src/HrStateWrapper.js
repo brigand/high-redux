@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import * as t from './types';
 import HrQuery from './HrQuery';
 
@@ -64,15 +65,17 @@ type HrStateWrapperOp = {
 const TEST_TIME = 1500000000000;
 
 function makeInfo(state: t.HrState): StateInfo {
-  return {
+  const infoObj = {
     state,
     ops: [],
     time: process.env.NODE_ENV === 'test' ? TEST_TIME : Date.now(),
   };
+
+  return infoObj;
 }
 
 function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
-  return {
+  const pathObj = {
     isHrStatePath: true,
     type: parent ? parent.path.type : null,
     typeValue: parent ? parent.path.typeValue : null,
@@ -80,10 +83,14 @@ function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
     info,
     parent,
   };
+
+  return pathObj;
 }
 
 export function wrapperFromState(_state: ?t.HrState) {
   const state: t.HrState = _state || makeDefaultHrState();
+  if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
+
   const info = makeInfo(state);
   const path = makePath(info);
   return new HrStateWrapper(path);
@@ -272,6 +279,8 @@ export class HrStateWrapper {
     const sw: HrStateWrapper = this.root();
     let { state, ops } = sw.path.info;
     if (!ops.length) return state;
+
+    if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
 
     state = { ...state };
 
