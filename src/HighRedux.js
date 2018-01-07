@@ -92,21 +92,29 @@ export function makeHr(opts: Opts): HighReducerRes {
         }
 
         const original = selectors[selName];
-        function wrappedSelector(...args) {
-          return original(this, ...args);
-        }
 
-        Object.defineProperty(wrappedSelector, 'name', {
-          configurable: true,
-          writable: true,
-          enumerable: true,
-          value: `hrWrappedSel:${name}:${selName}`,
-        });
+        let value = null;
+
+        if (typeof original === 'function') {
+          value = function wrappedSelector(...args) {
+            return original(this, ...args);
+          };
+          Object.defineProperty(value, 'name', {
+            configurable: true,
+            writable: true,
+            enumerable: true,
+            value: `hrWrappedSel:${name}:${selName}`,
+          });
+        } else if (Array.isArray(original)) {
+          value = original;
+        } else {
+          throw new Error(`Expected selector ${selName} to either be a function, or an array of functions`);
+        }
 
         Object.defineProperty(HrQueryForSelectors.prototype, selName, {
           configurable: true,
           writable: true,
-          value: wrappedSelector,
+          value,
         });
       }
 
@@ -130,7 +138,7 @@ export function makeHr(opts: Opts): HighReducerRes {
     return new queryClass(selfState);
   }
 
-  return { name, reducer, addToObject, getQuery };
+  return { name, reducer, addToObject, getQuery, selectors };
 }
 
 export const cleanGlobalState = () => {

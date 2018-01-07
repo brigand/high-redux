@@ -173,8 +173,23 @@ export class HrStateWrapper {
   /*
     Get an `HrQuery` object for the state.
   */
-  query() {
+  queryRoot() {
     return new HrQuery(this.path.info.state);
+  }
+
+  query() {
+    let q = new HrQuery(this.path.info.state);
+    if (this.path.key) q = q.key(this.path.key);
+
+    if (this.path.type === 'id' && this.path.typeValue) {
+      q = q.id(this.path.typeValue);
+    } else if (this.path.type === 'list') {
+      q = q.list();
+    } else if (this.path.type === 'kv' && this.path.typeValue) {
+      q = q.kv(this.path.typeValue);
+    }
+
+    return q;
   }
 
   /*

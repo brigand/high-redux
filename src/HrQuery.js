@@ -103,6 +103,14 @@ export default class HrQuery {
   }
 
   /*
+    Get the mapping of ids to `HrStateDesc` objects. Unfortunately required
+    for cached selectors going from lists of ids to values at those ids.
+  */
+  idsDescs() {
+    return this.st.byId[t.getKey(this.path.key)];
+  }
+
+  /*
     Get the list for the current key. Always returns an array, but it may be empty
   */
   list() {
