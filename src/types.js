@@ -34,3 +34,8 @@ export type HrState = {
 
 export type SelectorFunc = (query: HrQuery, state: Object) => any
 export type SelectorMapping = { [selectorName: string]: SelectorFunc }
+
+export type SubscribeDescriptor = {
+  handler: (selfState: Object, ownProps: Object, dispatch: Function, state: ?Object) => mixed,
+  needsState?: boolean,
+}

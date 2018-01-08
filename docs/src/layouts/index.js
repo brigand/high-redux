@@ -10,7 +10,7 @@ import '../css/prism.css';
 class Template extends React.Component {
   render() {
     const { location, children } = this.props
-    let header
+    let header = null
 
     let rootPath = `/`
     if (typeof __PREFIX_PATHS__ !== `undefined` && __PREFIX_PATHS__) {
@@ -37,27 +37,6 @@ class Template extends React.Component {
             High Redux Docs
           </Link>
         </h1>
-      )
-    } else {
-      header = (
-        <h3
-          style={{
-            fontFamily: 'Montserrat, sans-serif',
-            marginTop: 0,
-            marginBottom: rhythm(-1),
-          }}
-        >
-          <Link
-            style={{
-              boxShadow: 'none',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-            to={'/'}
-          >
-            High Redux Docs
-          </Link>
-        </h3>
       )
     }
     return (

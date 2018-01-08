@@ -195,18 +195,10 @@ export default class HrQuery {
     Gets the `HrStateDesc` object for the specified id, or null.
   */
   idDesc(id: string) {
-    const desc = this.st.byId[t.getKey(this.path.key)][id];
-    return desc || null;
-  }
+    const forKey = this.st.byId[t.getKey(this.path.key)];
+    if (!forKey) return null;
 
-  /*
-    Mostly for internal use.
-
-    Gets the `HrStateDesc` object for the current list.
-  */
-  listDesc() {
-    const key = t.getKey(this.path.key);
-    const desc = this.st.lists[key];
+    const desc = forKey[id];
     return desc || null;
   }
 
@@ -226,7 +218,10 @@ export default class HrQuery {
     Gets the `HrStateDesc` object for the specified key in the key/value pair.
   */
   kvDesc(id: string) {
-    const desc = this.st.kv[t.getKey(this.path.key)][id];
+    const forKey = this.st.kv[t.getKey(this.path.key)];
+    if (!forKey) return null;
+
+    const desc = forKey[id];
     return desc || null;
   }
 }

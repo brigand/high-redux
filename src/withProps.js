@@ -2,7 +2,8 @@
 'use strict';
 import type { ComponentType } from 'react';
 import { connect } from 'react-redux';
-import buildDispatcherComponent, { type DispatchComponentOp } from './buildDispatcherComponent';
+import { createSelector } from 'reselect';
+import buildDispatcherComponent from './buildDispatcherComponent';
 import HrQuery from './HrQuery';
 import * as t from './types';
 import { BaseStateOp, DirectAccessOp, SelectOp, CachedHrSelector } from './internal/selectorOps';
@@ -11,7 +12,7 @@ import { DO_SPREAD, queryOrIdentity, wrapWholeStateInQueries } from './internal/
 
 export class PropData {
   propOps: Array<BaseStateOp>
-  dispatchComponentOps: Array<DispatchComponentOp>
+  dispatchComponentOps: Array<t.SubscribeDescriptor>
   dispatchPropOps: Array<DispatchPropOp>
   computeKey: ?Function
 
@@ -100,51 +101,124 @@ export class PropData {
     return typeof sel === 'function' ? sel : ((ownProps: Object) => ownProps[sel]);
   }
 
-  propsToDispatchRaw(selectors: Array<any>, getAction: Function) {
-    this.dispatchComponentOps.push({
-      propSelectors: selectors.map(this._makeSelector),
-      getAction,
-    });
+  watchAndDispatchAdvanced(descriptor: t.SubscribeDescriptor) {
+    this.dispatchComponentOps.push(descriptor);
     return this;
   }
 
+  /*
+    Simple way to dispatch an action based on a prop changing.
+
+    ```javascript
+    .watchAndDispatch('SOME_ACTION', { somePayloadProperty: 'somePropName' })
+    ```
+  */
   watchAndDispatch(actionType: string, mapping: {[payloadKey: string]: any}) {
-    const keys = Object.keys(mapping);
-    const values = keys.map(key => mapping[key]);
-    this.propsToDispatchRaw(values, (ownProps, results) => {
-      const payload = {};
-      for (let i = 0; i < keys.length; i += 1) {
-        payload[keys[i]] = results[i];
-      }
-      return {
-        type: actionType,
-        payload,
-      }
+    const payloadKeys = Object.keys(mapping);
+    const propKeys = payloadKeys.map(key => mapping[key]);
+
+    this.watchAndDispatchAdvanced({
+      handler: (selfState, ownProps, dispatch) => {
+        let shouldDispatch = false;
+
+        const currValues = propKeys.map(key => ownProps[key]);
+
+        if (!selfState.prev) {
+          shouldDispatch = true;
+        } else {
+          for (let i = 0; i < propKeys.length; i += 1) {
+            if (selfState.prev[i] !== currValues[i]) {
+              shouldDispatch = true;
+              break;
+            }
+          }
+        }
+
+        selfState.prev = currValues;
+
+        if (shouldDispatch) {
+          let payload = {};
+          for (let i = 0; i < payloadKeys.length; i += 1) {
+            payload[payloadKeys[i]] = currValues[i];
+          }
+          dispatch({
+            type: actionType,
+            payload,
+          });
+        }
+      },
+      needsState: false,
     });
+
     return this;
   }
 
-  propsToDispatchPos(actionType: string, selectors: Array<string>) {
-    const invalidIndex = selectors.findIndex(x => typeof x !== 'string');
-    if (invalidIndex !== -1) {
-      throw new Error(`withProps::propsToDispatchPos expected all selectors to be strings, but selector at ${invalidIndex} is ${typeof selectors[invalidIndex]}`);
-    }
+  /*
+    Creates a reselect selector which is evaluated against the component's own props.
 
-    this.propsToDispatchRaw(selectors, (ownProps: Object, results: Array<any>) => {
-      const payload = {};
+    The final selector should return an action to be dispatched, or `null`
+    if no action should be dispatched.
 
-      for (let i = 0; i < selectors.length; i += 1) {
-        const sel = selectors[i];
-        const res = results[i];
-        payload[sel] = res;
-      }
+    If all of the selectors, excluding the final selector, return values `===`
+    to the previous time they were called, the final selector won't be called
+    again, and no action will be dispatched.
 
-      return {
-        type: actionType,
-        payload,
-      };
+    This runs before any other selectors, so it only receives props passed to
+    component returned by `.wrap` or `.asRender`, not props from the `.select` calls
+    or similar.
+
+    ```javascript
+    .selectAndDispatch(
+      props => props.item.id,
+      props => props.sortOrder,
+
+      // 'id' is the result of the first selector
+      // 'sortOrder', the result of the second
+      // returns an action
+      (id, sortOrder) => ({ type: 'FOO', payload: { id, sortOrder } }),
+    )
+    ```
+  */
+  selectAndDispatch(...args: Array<Function>) {
+    return this._selectAndDispatchInternal(false, ...args)
+  }
+
+  /*
+    Like `selectAndDispatch` except selectors receive state (wrapped in `HrQuery`
+    objects) as the first argument, and will be called on any redux state change,
+    or props change.
+
+    Be careful to avoid infinite dispatch cycles.
+  */
+  selectAndDispatchWithState(...args: Array<Function>) {
+    return this._selectAndDispatchInternal(true, ...args)
+  }
+
+  _selectAndDispatchInternal(needsState: boolean, ...args: Array<Function>) {
+    const selectors = args.slice(0, -1);
+    const actionCreator = args[args.length - 1];
+
+    this.watchAndDispatchAdvanced({
+      needsState,
+      handler: (selfState, ownProps, dispatch, state) => {
+        selfState.didUpdate = false;
+        if (!selfState.selector) selfState.selector = createSelector(...selectors, (...args) => {
+          selfState.didUpdate = true;
+          return actionCreator(...args);
+        });
+
+        let action;
+        if (needsState) {
+          action = selfState.selector(state, ownProps);
+        } else {
+          action = selfState.selector(ownProps);
+        }
+
+        if (selfState.didUpdate && action) {
+          dispatch(action);
+        }
+      },
     });
-    return this;
   }
 
   keyBy(_selector: string | Function) {
