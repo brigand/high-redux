@@ -18,17 +18,40 @@ class Sidebar extends React.Component {
     if (this.state.forceOpen) {
       style.display = 'block';
     }
+
+    const otherCategory = { label: 'Other', category: 'other', items: [] };
+
+    const byCategory = [
+      { label: 'Overview', category: 'overview', items: [] },
+      { label: 'makeHr', category: 'makeHr', items: [] },
+      { label: 'withProps', category: 'withProps', items: [] },
+      { label: 'API', category: 'api', items: [] },
+      otherCategory,
+    ];
+
+    this.props.items.forEach((x) => {
+      const { fields: { slug }, frontmatter: { category, title, shortTitle } } = x;
+
+      const categoryItems = byCategory.find(x => x.category === category) || otherCategory;
+      categoryItems.items.push({ slug, category, title, shortTitle });
+    });
+
     return (
       <div>
         <div className="Hr__SidebarToggle" onClick={() => this.toggleForceOpen()}>☰</div>
         <div className="HR__SidebarContent" style={style} onClick={() => this.toggleForceOpen()}>
-          <h3>Docs</h3>
-          {this.props.items.map((x) => {
+          {byCategory.map((cat) => {
+            if (!cat.items.length) return null;
             return (
-              <div className="HR__SidebarItem">
-                <Link to={x.fields.slug}>
-                  {x.frontmatter.title}
-                </Link>
+              <div>
+                {cat.label && <h3>{cat.label}</h3>}
+                {cat.items.map(item => (
+                  <div className="HR__SidebarItem">
+                    <Link to={item.slug}>
+                      {item.shortTitle || item.title}
+                    </Link>
+                  </div>
+                ))}
               </div>
             );
           })}

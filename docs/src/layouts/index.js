@@ -77,6 +77,8 @@ export const query = graphql`
           timeToRead
           frontmatter {
             title
+            category
+            shortTitle
           }
         }
       }
