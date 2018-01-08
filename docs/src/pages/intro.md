@@ -1,5 +1,6 @@
 ---
-title: "Intro"
+title: "Intro To High Redux"
+shortTitle: "Intro"
 lesson: 1
 chapter: 1
 cover: "https://unsplash.it/400/300/?random?BoldMage"
