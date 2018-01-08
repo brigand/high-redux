@@ -160,7 +160,7 @@ print(state);
           "name": "John"
         },
         "loadingStartTime": 0,
-        "loadingCompleteTime": 1515293027801,
+        "loadingCompleteTime": 1515403208634,
         "etc": {}
       }
     }
@@ -205,7 +205,7 @@ print(state);
         "hasError": false,
         "error": null,
         "value": null,
-        "loadingStartTime": 1515293027805,
+        "loadingStartTime": 1515403208638,
         "loadingCompleteTime": 0,
         "etc": {}
       }
@@ -257,7 +257,7 @@ print(state);
         "c"
       ],
       "loadingStartTime": 0,
-      "loadingCompleteTime": 1515293027806,
+      "loadingCompleteTime": 1515403208639,
       "etc": {}
     }
   },
@@ -304,7 +304,7 @@ print(state);
         "c"
       ],
       "loadingStartTime": 0,
-      "loadingCompleteTime": 1515293027807,
+      "loadingCompleteTime": 1515403208640,
       "etc": {}
     }
   },

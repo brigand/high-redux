@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.query = exports.withProps = undefined;
+exports.cleanGlobalState = exports.query = exports.withProps = undefined;
 
 var _HrStateWrapper = require('./HrStateWrapper');
 
@@ -30,38 +30,69 @@ Object.keys(_types).forEach(function (key) {
   });
 });
 
-var _HrQuery = require('./HrQuery');
+var _HrQuery2 = require('./HrQuery');
 
-Object.keys(_HrQuery).forEach(function (key) {
+Object.keys(_HrQuery2).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;
   Object.defineProperty(exports, key, {
     enumerable: true,
     get: function get() {
-      return _HrQuery[key];
+      return _HrQuery2[key];
     }
   });
 });
 exports.makeHr = makeHr;
 
-var _HrQuery2 = _interopRequireDefault(_HrQuery);
+var _HrQuery3 = _interopRequireDefault(_HrQuery2);
 
 var _withProps = require('./withProps');
 
 var _withProps2 = _interopRequireDefault(_withProps);
 
+var _globalState = require('./globalState');
+
+var globalState = _interopRequireWildcard(_globalState);
+
+var t = _interopRequireWildcard(_types);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 exports.withProps = _withProps2.default;
 
 // Convenience function
 
-var query = exports.query = function query(data) {
-  return new _HrQuery2.default(data);
+var query = exports.query = function query(state) {
+  var key = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+
+  var adjustedState = state;
+  if (!adjustedState.isHrState && key) {
+    adjustedState = state[key];
+  }
+
+  if (!adjustedState.isHrState) {
+    if (key) {
+      throw new Error('Neither state nor state[key] (key is second argument) returned an HrState object');
+    } else {
+      throw new Error('Attempted to make a query for a non-HrState object with no key (second argument) provided');
+    }
+  }
+
+  var queryClass = key && globalState.get().hrQueryClasses[key] || _HrQuery3.default;
+  return new queryClass(adjustedState);
 };
 
 function makeHr(opts) {
   var name = opts.name,
-      actions = opts.actions;
+      actions = opts.actions,
+      selectors = opts.selectors;
 
 
   function reducer(_state, action) {
@@ -84,13 +115,106 @@ function makeHr(opts) {
   }
 
   function addToObject(obj) {
+    var opts = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
     obj[name] = reducer;
+
+    var hrQueryClasses = globalState.get().hrQueryClasses;
+    if (name && !opts.noBindSelectors) {
+      if (hrQueryClasses[name]) {
+        throw new Error('Attempted to addToObject twice with the same name. Can\'t bind selectors. To disable the global selector binding do addToObject(reducers, { noBindSelectors: true })');
+      }
+
+      var HrQueryForSelectors = function (_HrQuery) {
+        _inherits(HrQueryForSelectors, _HrQuery);
+
+        function HrQueryForSelectors() {
+          var _ref;
+
+          _classCallCheck(this, HrQueryForSelectors);
+
+          for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+            args[_key] = arguments[_key];
+          }
+
+          return _possibleConstructorReturn(this, (_ref = HrQueryForSelectors.__proto__ || Object.getPrototypeOf(HrQueryForSelectors)).call.apply(_ref, [this].concat(args)));
+        }
+
+        return HrQueryForSelectors;
+      }(_HrQuery3.default);
+
+      var selectorNames = Object.keys(selectors);
+
+      var _loop = function _loop(i) {
+        var selName = selectorNames[i];
+
+        // $FlowFixMe
+        if (HrQueryForSelectors.prototype[name]) {
+          throw new Error('Selector named ' + selName + ' for hr state ' + name + ' conflicts with an HrQuery method');
+        }
+
+        var original = selectors[selName];
+
+        var value = null;
+
+        if (typeof original === 'function') {
+          value = function wrappedSelector() {
+            for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+              args[_key2] = arguments[_key2];
+            }
+
+            return original.apply(undefined, [this].concat(args));
+          };
+          Object.defineProperty(value, 'name', {
+            configurable: true,
+            writable: true,
+            enumerable: true,
+            value: 'hrWrappedSel:' + name + ':' + selName
+          });
+        } else if (Array.isArray(original)) {
+          value = original;
+        } else {
+          throw new Error('Expected selector ' + selName + ' to either be a function, or an array of functions');
+        }
+
+        Object.defineProperty(HrQueryForSelectors.prototype, selName, {
+          configurable: true,
+          writable: true,
+          value: value
+        });
+      };
+
+      for (var i = 0; i < selectorNames.length; i += 1) {
+        _loop(i);
+      }
+
+      hrQueryClasses[name] = HrQueryForSelectors;
+    }
+
     return obj;
   }
 
-  return { name: name, reducer: reducer, addToObject: addToObject };
+  function getQuery(reduxState) {
+    var hrQueryClasses = globalState.get().hrQueryClasses;
+
+    if (!name) {
+      throw new Error('getQuery called on a HighRedux with no \'name\' provided at creation time.');
+    }
+
+    var queryClass = hrQueryClasses[name] || _HrQuery3.default;
+
+    var selfState = reduxState.isHrState ? reduxState : reduxState[name];
+
+    return new queryClass(selfState);
+  }
+
+  return { name: name, reducer: reducer, addToObject: addToObject, getQuery: getQuery, selectors: selectors };
 }
-},{"./HrQuery":2,"./HrStateWrapper":3,"./types":5,"./withProps":6}],2:[function(require,module,exports){
+
+var cleanGlobalState = exports.cleanGlobalState = function cleanGlobalState() {
+  globalState.clear();
+};
+},{"./HrQuery":2,"./HrStateWrapper":3,"./globalState":5,"./types":8,"./withProps":9}],2:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -131,7 +255,7 @@ var HrQuery = function () {
     Scope the query to a specific key.
      ```javascript
     // in a reducer
-    s.key('some-key').setId('some-id', someValue)
+    s.key('some-key').id('some-id').set(someValue)
      // then later query it
     q.key('some-key').id('some-id') // returns `someValue`
     ```
@@ -215,6 +339,17 @@ var HrQuery = function () {
     }
 
     /*
+      Get the mapping of ids to `HrStateDesc` objects. Unfortunately required
+      for cached selectors going from lists of ids to lists of values.
+    */
+
+  }, {
+    key: 'idsDescs',
+    value: function idsDescs() {
+      return this.st.byId[t.getKey(this.path.key)];
+    }
+
+    /*
       Get the list for the current key. Always returns an array, but it may be empty
     */
 
@@ -229,13 +364,6 @@ var HrQuery = function () {
     }
 
     /*
-      Get the descriptor for
-    listDesc() {
-      const key = t.getKey(this.path.key);
-      const desc = this.st.lists[key];
-      return desc || null;
-    }
-     /*
       Get props for the list state. See the `q.idProps` docs for an example
       of how this works.
     */
@@ -313,7 +441,10 @@ var HrQuery = function () {
   }, {
     key: 'idDesc',
     value: function idDesc(id) {
-      var desc = this.st.byId[t.getKey(this.path.key)][id];
+      var forKey = this.st.byId[t.getKey(this.path.key)];
+      if (!forKey) return null;
+
+      var desc = forKey[id];
       return desc || null;
     }
 
@@ -337,7 +468,10 @@ var HrQuery = function () {
   }, {
     key: 'kvDesc',
     value: function kvDesc(id) {
-      var desc = this.st.kv[t.getKey(this.path.key)][id];
+      var forKey = this.st.kv[t.getKey(this.path.key)];
+      if (!forKey) return null;
+
+      var desc = forKey[id];
       return desc || null;
     }
   }]);
@@ -346,7 +480,7 @@ var HrQuery = function () {
 }();
 
 exports.default = HrQuery;
-},{"./types":5}],3:[function(require,module,exports){
+},{"./types":8}],3:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -406,15 +540,17 @@ function makeHrStateDesc(value, properties) {
 var TEST_TIME = 1500000000000;
 
 function makeInfo(state) {
-  return {
+  var infoObj = {
     state: state,
     ops: [],
     time: process.env.NODE_ENV === 'test' ? TEST_TIME : Date.now()
   };
+
+  return infoObj;
 }
 
 function makePath(info, parent) {
-  return {
+  var pathObj = {
     isHrStatePath: true,
     type: parent ? parent.path.type : null,
     typeValue: parent ? parent.path.typeValue : null,
@@ -422,10 +558,14 @@ function makePath(info, parent) {
     info: info,
     parent: parent
   };
+
+  return pathObj;
 }
 
 function wrapperFromState(_state) {
   var state = _state || makeDefaultHrState();
+  if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
+
   var info = makeInfo(state);
   var path = makePath(info);
   return new HrStateWrapper(path);
@@ -533,9 +673,25 @@ var HrStateWrapper = function () {
     */
 
   }, {
+    key: 'queryRoot',
+    value: function queryRoot() {
+      return new _HrQuery2.default(this.path.info.state);
+    }
+  }, {
     key: 'query',
     value: function query() {
-      return new _HrQuery2.default(this.path.info.state);
+      var q = new _HrQuery2.default(this.path.info.state);
+      if (this.path.key) q = q.key(this.path.key);
+
+      if (this.path.type === 'id' && this.path.typeValue) {
+        q = q.id(this.path.typeValue);
+      } else if (this.path.type === 'list') {
+        q = q.list();
+      } else if (this.path.type === 'kv' && this.path.typeValue) {
+        q = q.kv(this.path.typeValue);
+      }
+
+      return q;
     }
 
     /*
@@ -662,6 +818,8 @@ var HrStateWrapper = function () {
 
       if (!ops.length) return state;
 
+      if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
+
       state = _extends({}, state);
 
       // Track which things we've cloned to improve performance, and avoid
@@ -679,48 +837,62 @@ var HrStateWrapper = function () {
         var _key2 = t.getKey(_op.key);
 
         if (_op.type === 'id' || _op.type === 'kv') {
-          var _stateKey = _op.type === 'id' ? 'byId' : 'kv';
+          var stateKey = _op.type === 'id' ? 'byId' : 'kv';
           if (!cloned[_op.type]) {
             cloned[_op.type] = true;
-            state[_stateKey] = _extends({}, state.byId);
+            state[stateKey] = _extends({}, state.byId);
           }
 
           if (!clonedKey[_op.type][_key2]) {
             clonedKey[_op.type][_key2] = true;
-            state[_stateKey][_key2] = _extends({}, state[_stateKey][_key2]);
+            state[stateKey][_key2] = _extends({}, state[stateKey][_key2]);
           }
 
           if (_op.op === 'set') {
             var opts = {};
             opts.loadingCompleteTime = this.path.info.time;
             // $FlowFixMe
-            if (state[_stateKey][_key2][_op.typeValue]) {
-              opts.loadingStartTime = state[_stateKey][_key2][_op.typeValue].loadingStartTime;
+            if (state[stateKey][_key2][_op.typeValue]) {
+              opts.loadingStartTime = state[stateKey][_key2][_op.typeValue].loadingStartTime;
             }
 
             // $FlowFixMe
-            state[_stateKey][_key2][_op.typeValue] = makeHrStateDesc(_op.data, opts);
+            state[stateKey][_key2][_op.typeValue] = makeHrStateDesc(_op.data, opts);
+          }
+
+          if (_op.op === 'updateValue') {
+            // $FlowFixMe
+            var currentDesc = state[stateKey][_key2][_op.typeValue];
+            if (currentDesc) {
+              var current = currentDesc.value;
+              var updateData = _op.data(current);
+              if (updateData != null) {
+                var value = _extends({}, current, updateData);
+                // $FlowFixMe
+                state[stateKey][_key2][_op.typeValue] = _extends({}, currentDesc, { value: value });
+              }
+            }
           }
 
           if (_op.op === 'setIds') {
             for (var _i = 0; _i < _op.data.length; _i += 1) {
               var pair = _op.data[_i];
-              state[_stateKey][_key2][pair[0]] = makeHrStateDesc(pair[1]);
+              state[stateKey][_key2][pair[0]] = makeHrStateDesc(pair[1]);
             }
           }
 
           if (_op.op === 'mergeDesc') {
             // $FlowFixMe
-            var desc = state[_stateKey][_key2][_op.typeValue] ? _extends({}, state[_stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
+            var desc = state[stateKey][_key2][_op.typeValue] ? _extends({}, state[stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
             Object.assign(desc, _op.data);
             // $FlowFixMe
-            state[_stateKey][_key2][_op.typeValue] = desc;
+            state[stateKey][_key2][_op.typeValue] = desc;
           }
 
           if (_op.op === 'setInDesc') {
             (function () {
               // $FlowFixMe
-              var desc = state[_stateKey][_key2][_op.typeValue] ? _extends({}, state[_stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
+              var desc = state[stateKey][_key2][_op.typeValue] ? _extends({}, state[stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
 
               var final = _op.data.path.slice(0, -1).reduce(function (acc, k) {
                 desc[k] = _extends({}, desc[k]);
@@ -729,7 +901,7 @@ var HrStateWrapper = function () {
               final[_op.data.path[_op.data.path.length - 1]] = _op.data.value;
 
               // $FlowFixMe
-              state[_stateKey][_key2][_op.typeValue] = desc;
+              state[stateKey][_key2][_op.typeValue] = desc;
             })();
           }
         }
@@ -755,7 +927,7 @@ var HrStateWrapper = function () {
             var _desc = state.lists[_key2] ? _extends({}, state.lists[_key2]) : makeHrStateDesc(null);
             Object.assign(_desc, _op.data);
             // $FlowFixMe
-            state[stateKey][_key2] = _desc;
+            state.lists[_key2] = _desc;
           }
 
           if (_op.op === 'setInDesc') {
@@ -769,7 +941,7 @@ var HrStateWrapper = function () {
               final[_op.data.path[_op.data.path.length - 1]] = _op.data.value;
 
               // $FlowFixMe
-              state[stateKey][_key2] = desc;
+              state.lists[_key2] = desc;
             })();
           }
         }
@@ -817,7 +989,7 @@ var HrStateWrapper = function () {
 
 exports.HrStateWrapper = HrStateWrapper;
 }).call(this,require('_process'))
-},{"./HrQuery":2,"./types":5,"_process":24}],4:[function(require,module,exports){
+},{"./HrQuery":2,"./types":8,"_process":28,"deep-freeze":10}],4:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -838,6 +1010,12 @@ var _propTypes = require('prop-types');
 
 var PT = _interopRequireWildcard(_propTypes);
 
+var _types = require('./types');
+
+var t = _interopRequireWildcard(_types);
+
+var _internalUtils = require('./internal/internalUtils');
+
 var _shallowequal = require('shallowequal');
 
 var _shallowequal2 = _interopRequireDefault(_shallowequal);
@@ -853,6 +1031,10 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 function buildDispatcherComponent(C, ops, extraOpts) {
+  var anyNeedState = ops.some(function (x) {
+    return x.needsState;
+  });
+
   var DispatcherComponent = function (_React$Component) {
     _inherits(DispatcherComponent, _React$Component);
 
@@ -865,13 +1047,24 @@ function buildDispatcherComponent(C, ops, extraOpts) {
       for (var i = 0; i < ops.length; i += 1) {
         _this.previousValues.push(null);
       }
+
+      _this.handlerState = Array.from({ length: ops.length }, function () {
+        return {};
+      });
       return _this;
     }
 
     _createClass(DispatcherComponent, [{
       key: 'componentWillMount',
       value: function componentWillMount() {
+        var _this2 = this;
+
         this.maybeDispatch(null, this.props);
+        if (anyNeedState) {
+          this.unsub = this.context.store.subscribe(function () {
+            _this2.maybeDispatch(_this2.props, _this2.props);
+          });
+        }
       }
     }, {
       key: 'componentWillReceiveProps',
@@ -879,22 +1072,29 @@ function buildDispatcherComponent(C, ops, extraOpts) {
         this.maybeDispatch(this.props, nextProps);
       }
     }, {
+      key: 'componentWillUnmount',
+      value: function componentWillUnmount() {
+        if (this.unsub) this.unsub();
+      }
+    }, {
       key: 'maybeDispatch',
       value: function maybeDispatch(prevProps, nextProps) {
+        var store = this.context.store;
+        var state = null;
+
+        if (anyNeedState) {
+          state = (0, _internalUtils.wrapWholeStateInQueries)(store.getState());
+        }
+
         for (var i = 0; i < ops.length; i += 1) {
           var op = ops[i];
           var prev = this.previousValues[i];
 
-          var values = op.propSelectors.map(function (f) {
-            return f(nextProps);
-          });
+          var res = op.handler(this.handlerState[i], nextProps, store.dispatch, op.needsState ? state : null);
 
-          if (!prevProps || !prev) {
-            this.dispatchAction(op.getAction(nextProps, values));
-          } else if (!(0, _shallowequal2.default)(this.previousValues[i], values)) {
-            this.dispatchAction(op.getAction(nextProps, values));
+          if (res) {
+            this.handlerState[i] = res;
           }
-          this.previousValues[i] = values;
         }
       }
     }, {
@@ -931,7 +1131,285 @@ function buildDispatcherComponent(C, ops, extraOpts) {
 
   return DispatcherComponent;
 }
-},{"prop-types":28,"react":47,"shallowequal":56}],5:[function(require,module,exports){
+},{"./internal/internalUtils":6,"./types":8,"prop-types":32,"react":51,"shallowequal":60}],5:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.clear = exports.get = undefined;
+
+var _types = require('./types');
+
+var t = _interopRequireWildcard(_types);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+var globalState = {
+  hrQueryClasses: {}
+};
+var get = exports.get = function get() {
+  return globalState;
+};
+
+var clear = exports.clear = function clear() {
+  var hrQueryClasses = globalState.hrQueryClasses;
+
+  Object.keys(hrQueryClasses).forEach(function (key) {
+    delete hrQueryClasses[key];
+  });
+};
+},{"./types":8}],6:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.DO_SPREAD = undefined;
+exports.queryOrIdentity = queryOrIdentity;
+exports.wrapWholeStateInQueries = wrapWholeStateInQueries;
+
+var _HrQuery = require('../HrQuery');
+
+var _HrQuery2 = _interopRequireDefault(_HrQuery);
+
+var _globalState = require('../globalState');
+
+var globalState = _interopRequireWildcard(_globalState);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+var DO_SPREAD = exports.DO_SPREAD = '[[spread]]';
+
+function queryOrIdentity(value, queryClass) {
+  if (value && value.isHrState) return new queryClass(value);
+  return value;
+}
+
+function wrapWholeStateInQueries(state) {
+  var hrQueryClasses = globalState.get().hrQueryClasses;
+
+  var keys = Object.keys(state);
+  var out = {};
+  for (var i = 0; i < keys.length; i += 1) {
+    var key = keys[i];
+
+    var queryClass = _HrQuery2.default;
+    if (hrQueryClasses[key]) queryClass = hrQueryClasses[key];
+
+    out[key] = queryOrIdentity(state[key], queryClass);
+  }
+  return out;
+}
+},{"../HrQuery":2,"../globalState":5}],7:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.CachedHrSelector = exports.SelectOp = exports.DirectAccessOp = exports.BaseStateOp = undefined;
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _internalUtils = require('./internalUtils');
+
+var _reselect = require('reselect');
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var BaseStateOp =
+
+// A static handler that receives 'resProps', 'state' and 'ownProps' arguments
+// It should modify 'resProps' to add props to the props the component will receive
+// 'state' is the redux state without any wrappers.
+// 'ownProps' are the props the component has received
+// When used as a render callback, 'ownProps' will be <ConnectedRender ownProps={this value}>
+
+// The prop name hint. Most set a prop with this name.
+exports.BaseStateOp = function BaseStateOp(propName) {
+  _classCallCheck(this, BaseStateOp);
+
+  this.propName = propName;
+}
+
+// A function that returns a function like 'handler'
+// This is called for each instance of the component
+
+
+// Indicates if this operation needs the component's ownProps
+// If none of them do, then we can use the faster version of connect()
+;
+
+var DirectAccessOp = exports.DirectAccessOp = function (_BaseStateOp) {
+  _inherits(DirectAccessOp, _BaseStateOp);
+
+  function DirectAccessOp(propName, keys) {
+    _classCallCheck(this, DirectAccessOp);
+
+    var _this = _possibleConstructorReturn(this, (DirectAccessOp.__proto__ || Object.getPrototypeOf(DirectAccessOp)).call(this, propName));
+
+    var handler = function handler(resProps, state) {
+      var value = state;
+      for (var i = 0; i < keys.length; i += 1) {
+        value = value[keys[i]];
+      }
+
+      resProps[_this.propName] = value;
+    };
+    _this.handler = handler;
+    return _this;
+  }
+
+  return DirectAccessOp;
+}(BaseStateOp);
+
+var SelectOp = exports.SelectOp = function (_BaseStateOp2) {
+  _inherits(SelectOp, _BaseStateOp2);
+
+  function SelectOp(propName, funcs) {
+    _classCallCheck(this, SelectOp);
+
+    var _this2 = _possibleConstructorReturn(this, (SelectOp.__proto__ || Object.getPrototypeOf(SelectOp)).call(this, propName));
+
+    _this2.funcs = funcs;
+
+    if (funcs.length === 1) {
+      var self = _this2;
+      var selectOpHandler = function selectOpHandler(resProps, state, ownProps) {
+        var data = funcs[0](state, ownProps);
+        self._applyRes(resProps, data);
+      };
+      _this2.handler = selectOpHandler;
+    } else {
+      _this2.getHandler = function () {
+        var selector = _reselect.createSelector.apply(undefined, _toConsumableArray(funcs));
+
+        return function (resProps, state, ownProps) {
+          var data = selector(wrapWholeStateInQueries(state), ownProps);
+          _this2._applyRes(resProps, data);
+        };
+      };
+    }
+    return _this2;
+  }
+
+  _createClass(SelectOp, [{
+    key: '_applyRes',
+    value: function _applyRes(resProps, data) {
+      if (this.propName === _internalUtils.DO_SPREAD) {
+        Object.assign(resProps, data);
+      } else {
+        resProps[this.propName] = data;
+      }
+    }
+  }]);
+
+  return SelectOp;
+}(BaseStateOp);
+
+var CachedHrSelector = exports.CachedHrSelector = function (_BaseStateOp3) {
+  _inherits(CachedHrSelector, _BaseStateOp3);
+
+  function CachedHrSelector(propName, fromComp, fromHr) {
+    _classCallCheck(this, CachedHrSelector);
+
+    var _this3 = _possibleConstructorReturn(this, (CachedHrSelector.__proto__ || Object.getPrototypeOf(CachedHrSelector)).call(this, propName));
+
+    _this3.getHandler = function () {
+      var pre1 = fromComp;
+      var pre2 = fromHr.slice(0, -1);
+
+      var finalFunc = fromHr[fromHr.length - 1];
+
+      var selParts = [];
+
+      var memo = [];
+      var NULL = {};
+      var memoFinal = NULL;
+
+      return function (resProps, state, ownProps) {
+        var args = [];
+        var argsPre1 = [];
+        var argsPre2 = [];
+        var anyChanged = false;
+
+        for (var i = 0; i < pre1.length; i += 1) {
+          var value = pre1[i](state, ownProps);
+          args.push(value);
+          argsPre1.push(value);
+          var last = args.length - 1;
+          if (args[last] !== memo[last]) anyChanged = true;
+        }
+
+        var firstArgs = args.slice();
+
+        for (var _i = 0; _i < pre2.length; _i += 1) {
+          var _value = pre2[_i](state, firstArgs);
+          args.push(_value);
+          argsPre2.push(_value);
+          var _last = args.length - 1;
+          if (args[_last] !== memo[_last]) anyChanged = true;
+        }
+
+        if (anyChanged || memoFinal === NULL) {
+          var final = finalFunc.apply(undefined, argsPre2);
+
+          // If we're receiving a props object, it's very likely to have changed
+          // since it's generated on each call. Instead of ===, do a shallow compare.
+          if (_this3.propName === _internalUtils.DO_SPREAD) {
+            if (memoFinal === NULL || !memoFinal || (typeof memoFinal === 'undefined' ? 'undefined' : _typeof(memoFinal)) !== 'object') {
+              memoFinal = final;
+              memo = args;
+            } else {
+              var keys = Object.keys(final);
+
+              for (var _i2 = 0; _i2 < keys.length; _i2 += 1) {
+                var key = keys[_i2];
+                if (final[key] !== memoFinal[key]) {
+                  memoFinal = final;
+                  memo = args;
+                  break;
+                }
+              }
+              // No differences? Don't touch anything
+            }
+            // Much easier when not in props spread mode
+          } else if (final !== memoFinal) {
+            memoFinal = final;
+            memo = args;
+          }
+        }
+
+        _this3._applyRes(resProps, memoFinal);
+      };
+    };
+    return _this3;
+  }
+
+  _createClass(CachedHrSelector, [{
+    key: '_applyRes',
+    value: function _applyRes(resProps, data) {
+      if (this.propName === _internalUtils.DO_SPREAD) {
+        Object.assign(resProps, data);
+      } else {
+        resProps[this.propName] = data;
+      }
+    }
+  }]);
+
+  return CachedHrSelector;
+}(BaseStateOp);
+},{"./internalUtils":6,"reselect":59}],8:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -942,7 +1420,7 @@ function getKey(key) {
   if (!key) return '[[default]]';
   return key;
 }
-},{}],6:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -956,9 +1434,9 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 exports.default = withProps;
 
-var _reselect = require('reselect');
-
 var _reactRedux = require('react-redux');
+
+var _reselect = require('reselect');
 
 var _buildDispatcherComponent2 = require('./buildDispatcherComponent');
 
@@ -972,22 +1450,21 @@ var _types = require('./types');
 
 var t = _interopRequireWildcard(_types);
 
+var _selectorOps = require('./internal/selectorOps');
+
+var _globalState = require('./globalState');
+
+var globalState = _interopRequireWildcard(_globalState);
+
+var _internalUtils = require('./internal/internalUtils');
+
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function queryOrIdentity(value) {
-  if (value && value.isHrState) return new _HrQuery2.default(value);
-  return value;
-}
 
 var PropData = exports.PropData = function () {
   function PropData() {
@@ -1056,20 +1533,38 @@ var PropData = exports.PropData = function () {
       if (args.every(function (x) {
         return typeof x === 'string';
       })) {
-        this.propOps.push(new DirectAccessOp(propName, args));
+        this.propOps.push(new _selectorOps.DirectAccessOp(propName, args));
         return this;
       }
 
       if (args.every(function (x) {
         return typeof x === 'function';
       })) {
-        this.propOps.push(new SelectOp(propName, args));
+        this.propOps.push(new _selectorOps.SelectOp(propName, args));
+        return this;
+      }
+
+      var preArgs = args.slice(0, -1);
+      var selArg = args[args.length - 1];
+      if (preArgs.every(function (x) {
+        return typeof x === 'function';
+      }) && Array.isArray(selArg)) {
+        this.propOps.push(new _selectorOps.CachedHrSelector(propName, preArgs, selArg));
         return this;
       }
 
       throw new Error('select expects 1 or more strings, or 1 or more functions but recieved ' + args.map(function (x) {
         return typeof x === 'undefined' ? 'undefined' : _typeof(x);
       }).join(', '));
+    }
+  }, {
+    key: 'selectProps',
+    value: function selectProps() {
+      for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2];
+      }
+
+      return this.select.apply(this, [_internalUtils.DO_SPREAD].concat(args));
     }
   }, {
     key: 'bindAction',
@@ -1085,58 +1580,144 @@ var PropData = exports.PropData = function () {
       };
     }
   }, {
-    key: 'propsToDispatchRaw',
-    value: function propsToDispatchRaw(selectors, getAction) {
-      this.dispatchComponentOps.push({
-        propSelectors: selectors.map(this._makeSelector),
-        getAction: getAction
-      });
+    key: 'watchAndDispatchAdvanced',
+    value: function watchAndDispatchAdvanced(descriptor) {
+      this.dispatchComponentOps.push(descriptor);
       return this;
     }
+
+    /*
+      Simple way to dispatch an action based on a prop changing.
+       ```javascript
+      .watchAndDispatch('SOME_ACTION', { somePayloadProperty: 'somePropName' })
+      ```
+    */
+
   }, {
     key: 'watchAndDispatch',
     value: function watchAndDispatch(actionType, mapping) {
-      var keys = Object.keys(mapping);
-      var values = keys.map(function (key) {
+      var payloadKeys = Object.keys(mapping);
+      var propKeys = payloadKeys.map(function (key) {
         return mapping[key];
       });
-      this.propsToDispatchRaw(values, function (ownProps, results) {
-        var payload = {};
-        for (var i = 0; i < keys.length; i += 1) {
-          payload[keys[i]] = results[i];
-        }
-        return {
-          type: actionType,
-          payload: payload
-        };
+
+      this.watchAndDispatchAdvanced({
+        handler: function handler(selfState, ownProps, dispatch) {
+          var shouldDispatch = false;
+
+          var currValues = propKeys.map(function (key) {
+            return ownProps[key];
+          });
+
+          if (!selfState.prev) {
+            shouldDispatch = true;
+          } else {
+            for (var i = 0; i < propKeys.length; i += 1) {
+              if (selfState.prev[i] !== currValues[i]) {
+                shouldDispatch = true;
+                break;
+              }
+            }
+          }
+
+          selfState.prev = currValues;
+
+          if (shouldDispatch) {
+            var payload = {};
+            for (var _i = 0; _i < payloadKeys.length; _i += 1) {
+              payload[payloadKeys[_i]] = currValues[_i];
+            }
+            dispatch({
+              type: actionType,
+              payload: payload
+            });
+          }
+        },
+        needsState: false
       });
+
       return this;
     }
+
+    /*
+      Creates a reselect selector which is evaluated against the component's own props.
+       The final selector should return an action to be dispatched, or `null`
+      if no action should be dispatched.
+       If all of the selectors, excluding the final selector, return values `===`
+      to the previous time they were called, the final selector won't be called
+      again, and no action will be dispatched.
+       This runs before any other selectors, so it only receives props passed to
+      component returned by `.wrap` or `.asRender`, not props from the `.select` calls
+      or similar.
+       ```javascript
+      .selectAndDispatch(
+        props => props.item.id,
+        props => props.sortOrder,
+         // 'id' is the result of the first selector
+        // 'sortOrder', the result of the second
+        // returns an action
+        (id, sortOrder) => ({ type: 'FOO', payload: { id, sortOrder } }),
+      )
+      ```
+    */
+
   }, {
-    key: 'propsToDispatchPos',
-    value: function propsToDispatchPos(actionType, selectors) {
-      var invalidIndex = selectors.findIndex(function (x) {
-        return typeof x !== 'string';
-      });
-      if (invalidIndex !== -1) {
-        throw new Error('withProps::propsToDispatchPos expected all selectors to be strings, but selector at ' + invalidIndex + ' is ' + _typeof(selectors[invalidIndex]));
+    key: 'selectAndDispatch',
+    value: function selectAndDispatch() {
+      for (var _len3 = arguments.length, args = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+        args[_key3] = arguments[_key3];
       }
 
-      this.propsToDispatchRaw(selectors, function (ownProps, results) {
-        var payload = {};
+      return this._selectAndDispatchInternal.apply(this, [false].concat(args));
+    }
 
-        for (var i = 0; i < selectors.length; i += 1) {
-          var sel = selectors[i];
-          var res = results[i];
-          payload[sel] = res;
+    /*
+      Like `selectAndDispatch` except selectors receive state (wrapped in `HrQuery`
+      objects) as the first argument, and will be called on any redux state change,
+      or props change.
+       Be careful to avoid infinite dispatch cycles.
+    */
+
+  }, {
+    key: 'selectAndDispatchWithState',
+    value: function selectAndDispatchWithState() {
+      for (var _len4 = arguments.length, args = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+        args[_key4] = arguments[_key4];
+      }
+
+      return this._selectAndDispatchInternal.apply(this, [true].concat(args));
+    }
+  }, {
+    key: '_selectAndDispatchInternal',
+    value: function _selectAndDispatchInternal(needsState) {
+      for (var _len5 = arguments.length, args = Array(_len5 > 1 ? _len5 - 1 : 0), _key5 = 1; _key5 < _len5; _key5++) {
+        args[_key5 - 1] = arguments[_key5];
+      }
+
+      var selectors = args.slice(0, -1);
+      var actionCreator = args[args.length - 1];
+
+      this.watchAndDispatchAdvanced({
+        needsState: needsState,
+        handler: function handler(selfState, ownProps, dispatch, state) {
+          selfState.didUpdate = false;
+          if (!selfState.selector) selfState.selector = _reselect.createSelector.apply(undefined, _toConsumableArray(selectors).concat([function () {
+            selfState.didUpdate = true;
+            return actionCreator.apply(undefined, arguments);
+          }]));
+
+          var action = void 0;
+          if (needsState) {
+            action = selfState.selector(state, ownProps);
+          } else {
+            action = selfState.selector(ownProps);
+          }
+
+          if (selfState.didUpdate && action) {
+            dispatch(action);
+          }
         }
-
-        return {
-          type: actionType,
-          payload: payload
-        };
       });
-      return this;
     }
   }, {
     key: 'keyBy',
@@ -1171,7 +1752,7 @@ var PropData = exports.PropData = function () {
         });
         return function mapStateToProps(state, ownProps) {
           var resProps = {};
-          var wrappedState = wrapWholeStateInQueries(state);
+          var wrappedState = (0, _internalUtils.wrapWholeStateInQueries)(state);
           for (var i = 0; i < handlers.length; i += 1) {
             var handler = handlers[i];
             if (handler) {
@@ -1208,113 +1789,29 @@ function withProps() {
   return new PropData();
 }
 
-var BaseStateOp =
-
-// A static handler that receives 'resProps', 'state' and 'ownProps' arguments
-// It should modify 'resProps' to add props to the props the component will receive
-// 'state' is the redux state without any wrappers.
-// 'ownProps' are the props the component has received
-// When used as a render callback, 'ownProps' will be <ConnectedRender ownProps={this value}>
-
-// The prop name hint. Most set a prop with this name.
-function BaseStateOp(propName) {
-  _classCallCheck(this, BaseStateOp);
-
-  this.propName = propName;
-}
-
-// A function that returns a function like 'handler'
-// This is called for each instance of the component
-
-
-// Indicates if this operation needs the component's ownProps
-// If none of them do, then we can use the faster version of connect()
-;
-
-var DirectAccessOp = function (_BaseStateOp) {
-  _inherits(DirectAccessOp, _BaseStateOp);
-
-  function DirectAccessOp(propName, keys) {
-    _classCallCheck(this, DirectAccessOp);
-
-    var _this = _possibleConstructorReturn(this, (DirectAccessOp.__proto__ || Object.getPrototypeOf(DirectAccessOp)).call(this, propName));
-
-    var handler = function handler(resProps, state) {
-      var value = state;
-      for (var i = 0; i < keys.length; i += 1) {
-        value = value[keys[i]];
-      }
-
-      resProps[_this.propName] = value;
-    };
-    _this.handler = handler;
-    return _this;
-  }
-
-  return DirectAccessOp;
-}(BaseStateOp);
-
-var SelectOp = function (_BaseStateOp2) {
-  _inherits(SelectOp, _BaseStateOp2);
-
-  function SelectOp(propName, funcs) {
-    _classCallCheck(this, SelectOp);
-
-    var _this2 = _possibleConstructorReturn(this, (SelectOp.__proto__ || Object.getPrototypeOf(SelectOp)).call(this, propName));
-
-    _this2.funcs = funcs;
-
-    if (funcs.length === 1) {
-      var self = _this2;
-      var selectOpHandler = function selectOpHandler(resProps, state, ownProps) {
-        var data = funcs[0](state, ownProps);
-        self._applyRes(resProps, data);
-      };
-      _this2.handler = selectOpHandler;
-    } else {
-      _this2.getHandler = function () {
-        var selector = _reselect.createSelector.apply(undefined, _toConsumableArray(funcs));
-
-        return function (resProps, state, ownProps) {
-          var data = selector(wrapWholeStateInQueries(state), ownProps);
-          _this2._applyRes(resProps, data);
-        };
-      };
-    }
-    return _this2;
-  }
-
-  _createClass(SelectOp, [{
-    key: '_applyRes',
-    value: function _applyRes(resProps, data) {
-      if (data && data['high-redux:do-spread']) {
-        Object.assign(resProps, data);
-      } else {
-        resProps[this.propName] = data;
-      }
-    }
-  }]);
-
-  return SelectOp;
-}(BaseStateOp);
-
-function wrapWholeStateInQueries(state) {
-  var keys = Object.keys(state);
-  var out = {};
-  for (var i = 0; i < keys.length; i += 1) {
-    var key = keys[i];
-    out[key] = queryOrIdentity(state[key]);
-  }
-  return out;
-}
-
 var DispatchPropOp = function DispatchPropOp(propName, makeAction) {
   _classCallCheck(this, DispatchPropOp);
 
   this.propName = propName;
   this.makeAction = makeAction;
 };
-},{"./HrQuery":2,"./buildDispatcherComponent":4,"./types":5,"react-redux":39,"reselect":55}],7:[function(require,module,exports){
+},{"./HrQuery":2,"./buildDispatcherComponent":4,"./globalState":5,"./internal/internalUtils":6,"./internal/selectorOps":7,"./types":8,"react-redux":43,"reselect":59}],10:[function(require,module,exports){
+module.exports = function deepFreeze (o) {
+  Object.freeze(o);
+
+  Object.getOwnPropertyNames(o).forEach(function (prop) {
+    if (o.hasOwnProperty(prop)
+    && o[prop] !== null
+    && (typeof o[prop] === "object" || typeof o[prop] === "function")
+    && !Object.isFrozen(o[prop])) {
+      deepFreeze(o[prop]);
+    }
+  });
+  
+  return o;
+};
+
+},{}],11:[function(require,module,exports){
 "use strict";
 
 /**
@@ -1351,7 +1848,7 @@ emptyFunction.thatReturnsArgument = function (arg) {
 };
 
 module.exports = emptyFunction;
-},{}],8:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
@@ -1371,7 +1868,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 module.exports = emptyObject;
 }).call(this,require('_process'))
-},{"_process":24}],9:[function(require,module,exports){
+},{"_process":28}],13:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
@@ -1427,7 +1924,7 @@ function invariant(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 }).call(this,require('_process'))
-},{"_process":24}],10:[function(require,module,exports){
+},{"_process":28}],14:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2014-present, Facebook, Inc.
@@ -1492,7 +1989,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 module.exports = warning;
 }).call(this,require('_process'))
-},{"./emptyFunction":7,"_process":24}],11:[function(require,module,exports){
+},{"./emptyFunction":11,"_process":28}],15:[function(require,module,exports){
 /**
  * Copyright 2015, Yahoo! Inc.
  * Copyrights licensed under the New BSD License. See the accompanying LICENSE file for terms.
@@ -1559,7 +2056,7 @@ module.exports = function hoistNonReactStatics(targetComponent, sourceComponent,
     return targetComponent;
 };
 
-},{}],12:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -1614,7 +2111,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":24}],13:[function(require,module,exports){
+},{"_process":28}],17:[function(require,module,exports){
 var root = require('./_root');
 
 /** Built-in value references. */
@@ -1622,7 +2119,7 @@ var Symbol = root.Symbol;
 
 module.exports = Symbol;
 
-},{"./_root":20}],14:[function(require,module,exports){
+},{"./_root":24}],18:[function(require,module,exports){
 var Symbol = require('./_Symbol'),
     getRawTag = require('./_getRawTag'),
     objectToString = require('./_objectToString');
@@ -1652,7 +2149,7 @@ function baseGetTag(value) {
 
 module.exports = baseGetTag;
 
-},{"./_Symbol":13,"./_getRawTag":17,"./_objectToString":18}],15:[function(require,module,exports){
+},{"./_Symbol":17,"./_getRawTag":21,"./_objectToString":22}],19:[function(require,module,exports){
 (function (global){
 /** Detect free variable `global` from Node.js. */
 var freeGlobal = typeof global == 'object' && global && global.Object === Object && global;
@@ -1660,7 +2157,7 @@ var freeGlobal = typeof global == 'object' && global && global.Object === Object
 module.exports = freeGlobal;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],16:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var overArg = require('./_overArg');
 
 /** Built-in value references. */
@@ -1668,7 +2165,7 @@ var getPrototype = overArg(Object.getPrototypeOf, Object);
 
 module.exports = getPrototype;
 
-},{"./_overArg":19}],17:[function(require,module,exports){
+},{"./_overArg":23}],21:[function(require,module,exports){
 var Symbol = require('./_Symbol');
 
 /** Used for built-in method references. */
@@ -1716,7 +2213,7 @@ function getRawTag(value) {
 
 module.exports = getRawTag;
 
-},{"./_Symbol":13}],18:[function(require,module,exports){
+},{"./_Symbol":17}],22:[function(require,module,exports){
 /** Used for built-in method references. */
 var objectProto = Object.prototype;
 
@@ -1740,7 +2237,7 @@ function objectToString(value) {
 
 module.exports = objectToString;
 
-},{}],19:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 /**
  * Creates a unary function that invokes `func` with its argument transformed.
  *
@@ -1757,7 +2254,7 @@ function overArg(func, transform) {
 
 module.exports = overArg;
 
-},{}],20:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 var freeGlobal = require('./_freeGlobal');
 
 /** Detect free variable `self`. */
@@ -1768,7 +2265,7 @@ var root = freeGlobal || freeSelf || Function('return this')();
 
 module.exports = root;
 
-},{"./_freeGlobal":15}],21:[function(require,module,exports){
+},{"./_freeGlobal":19}],25:[function(require,module,exports){
 /**
  * Checks if `value` is object-like. A value is object-like if it's not `null`
  * and has a `typeof` result of "object".
@@ -1799,7 +2296,7 @@ function isObjectLike(value) {
 
 module.exports = isObjectLike;
 
-},{}],22:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 var baseGetTag = require('./_baseGetTag'),
     getPrototype = require('./_getPrototype'),
     isObjectLike = require('./isObjectLike');
@@ -1863,7 +2360,7 @@ function isPlainObject(value) {
 
 module.exports = isPlainObject;
 
-},{"./_baseGetTag":14,"./_getPrototype":16,"./isObjectLike":21}],23:[function(require,module,exports){
+},{"./_baseGetTag":18,"./_getPrototype":20,"./isObjectLike":25}],27:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -1955,7 +2452,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],24:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -2141,7 +2638,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],25:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
@@ -2204,7 +2701,7 @@ function checkPropTypes(typeSpecs, values, location, componentName, getStack) {
 module.exports = checkPropTypes;
 
 }).call(this,require('_process'))
-},{"./lib/ReactPropTypesSecret":29,"_process":24,"fbjs/lib/invariant":9,"fbjs/lib/warning":10}],26:[function(require,module,exports){
+},{"./lib/ReactPropTypesSecret":33,"_process":28,"fbjs/lib/invariant":13,"fbjs/lib/warning":14}],30:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  *
@@ -2264,7 +2761,7 @@ module.exports = function() {
   return ReactPropTypes;
 };
 
-},{"./lib/ReactPropTypesSecret":29,"fbjs/lib/emptyFunction":7,"fbjs/lib/invariant":9}],27:[function(require,module,exports){
+},{"./lib/ReactPropTypesSecret":33,"fbjs/lib/emptyFunction":11,"fbjs/lib/invariant":13}],31:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
@@ -2810,7 +3307,7 @@ module.exports = function(isValidElement, throwOnDirectAccess) {
 };
 
 }).call(this,require('_process'))
-},{"./checkPropTypes":25,"./lib/ReactPropTypesSecret":29,"_process":24,"fbjs/lib/emptyFunction":7,"fbjs/lib/invariant":9,"fbjs/lib/warning":10,"object-assign":23}],28:[function(require,module,exports){
+},{"./checkPropTypes":29,"./lib/ReactPropTypesSecret":33,"_process":28,"fbjs/lib/emptyFunction":11,"fbjs/lib/invariant":13,"fbjs/lib/warning":14,"object-assign":27}],32:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
@@ -2842,7 +3339,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 }).call(this,require('_process'))
-},{"./factoryWithThrowingShims":26,"./factoryWithTypeCheckers":27,"_process":24}],29:[function(require,module,exports){
+},{"./factoryWithThrowingShims":30,"./factoryWithTypeCheckers":31,"_process":28}],33:[function(require,module,exports){
 /**
  * Copyright (c) 2013-present, Facebook, Inc.
  *
@@ -2856,7 +3353,7 @@ var ReactPropTypesSecret = 'SECRET_DO_NOT_PASS_THIS_OR_YOU_WILL_BE_FIRED';
 
 module.exports = ReactPropTypesSecret;
 
-},{}],30:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -2945,7 +3442,7 @@ function createProvider() {
 
 exports.default = createProvider();
 }).call(this,require('_process'))
-},{"../utils/PropTypes":40,"../utils/warning":44,"_process":24,"prop-types":28,"react":47}],31:[function(require,module,exports){
+},{"../utils/PropTypes":44,"../utils/warning":48,"_process":28,"prop-types":32,"react":51}],35:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -3254,7 +3751,7 @@ selectorFactory) {
   };
 }
 }).call(this,require('_process'))
-},{"../utils/PropTypes":40,"../utils/Subscription":41,"_process":24,"hoist-non-react-statics":11,"invariant":12,"react":47}],32:[function(require,module,exports){
+},{"../utils/PropTypes":44,"../utils/Subscription":45,"_process":28,"hoist-non-react-statics":15,"invariant":16,"react":51}],36:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3383,7 +3880,7 @@ function createConnect() {
 }
 
 exports.default = createConnect();
-},{"../components/connectAdvanced":31,"../utils/shallowEqual":42,"./mapDispatchToProps":33,"./mapStateToProps":34,"./mergeProps":35,"./selectorFactory":36}],33:[function(require,module,exports){
+},{"../components/connectAdvanced":35,"../utils/shallowEqual":46,"./mapDispatchToProps":37,"./mapStateToProps":38,"./mergeProps":39,"./selectorFactory":40}],37:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3412,7 +3909,7 @@ function whenMapDispatchToPropsIsObject(mapDispatchToProps) {
 }
 
 exports.default = [whenMapDispatchToPropsIsFunction, whenMapDispatchToPropsIsMissing, whenMapDispatchToPropsIsObject];
-},{"./wrapMapToProps":38,"redux":53}],34:[function(require,module,exports){
+},{"./wrapMapToProps":42,"redux":57}],38:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3432,7 +3929,7 @@ function whenMapStateToPropsIsMissing(mapStateToProps) {
 }
 
 exports.default = [whenMapStateToPropsIsFunction, whenMapStateToPropsIsMissing];
-},{"./wrapMapToProps":38}],35:[function(require,module,exports){
+},{"./wrapMapToProps":42}],39:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -3493,7 +3990,7 @@ function whenMergePropsIsOmitted(mergeProps) {
 
 exports.default = [whenMergePropsIsFunction, whenMergePropsIsOmitted];
 }).call(this,require('_process'))
-},{"../utils/verifyPlainObject":43,"_process":24}],36:[function(require,module,exports){
+},{"../utils/verifyPlainObject":47,"_process":28}],40:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -3609,7 +4106,7 @@ function finalPropsSelectorFactory(dispatch, _ref2) {
   return selectorFactory(mapStateToProps, mapDispatchToProps, mergeProps, dispatch, options);
 }
 }).call(this,require('_process'))
-},{"./verifySubselectors":37,"_process":24}],37:[function(require,module,exports){
+},{"./verifySubselectors":41,"_process":28}],41:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3636,7 +4133,7 @@ function verifySubselectors(mapStateToProps, mapDispatchToProps, mergeProps, dis
   verify(mapDispatchToProps, 'mapDispatchToProps', displayName);
   verify(mergeProps, 'mergeProps', displayName);
 }
-},{"../utils/warning":44}],38:[function(require,module,exports){
+},{"../utils/warning":48}],42:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -3717,7 +4214,7 @@ function wrapMapToPropsFunc(mapToProps, methodName) {
   };
 }
 }).call(this,require('_process'))
-},{"../utils/verifyPlainObject":43,"_process":24}],39:[function(require,module,exports){
+},{"../utils/verifyPlainObject":47,"_process":28}],43:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3741,7 +4238,7 @@ exports.Provider = _Provider2.default;
 exports.createProvider = _Provider.createProvider;
 exports.connectAdvanced = _connectAdvanced2.default;
 exports.connect = _connect2.default;
-},{"./components/Provider":30,"./components/connectAdvanced":31,"./connect/connect":32}],40:[function(require,module,exports){
+},{"./components/Provider":34,"./components/connectAdvanced":35,"./connect/connect":36}],44:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3765,7 +4262,7 @@ var storeShape = exports.storeShape = _propTypes2.default.shape({
   dispatch: _propTypes2.default.func.isRequired,
   getState: _propTypes2.default.func.isRequired
 });
-},{"prop-types":28}],41:[function(require,module,exports){
+},{"prop-types":32}],45:[function(require,module,exports){
 "use strict";
 
 exports.__esModule = true;
@@ -3862,7 +4359,7 @@ var Subscription = function () {
 }();
 
 exports.default = Subscription;
-},{}],42:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3897,7 +4394,7 @@ function shallowEqual(objA, objB) {
 
   return true;
 }
-},{}],43:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3918,7 +4415,7 @@ function verifyPlainObject(value, displayName, methodName) {
     (0, _warning2.default)(methodName + '() in ' + displayName + ' must return a plain object. Instead received ' + value + '.');
   }
 }
-},{"./warning":44,"lodash/isPlainObject":22}],44:[function(require,module,exports){
+},{"./warning":48,"lodash/isPlainObject":26}],48:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -3944,7 +4441,7 @@ function warning(message) {
   } catch (e) {}
   /* eslint-enable no-empty */
 }
-},{}],45:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 (function (process){
 /** @license React v16.2.0
  * react.development.js
@@ -5305,7 +5802,7 @@ module.exports = react;
 }
 
 }).call(this,require('_process'))
-},{"_process":24,"fbjs/lib/emptyFunction":7,"fbjs/lib/emptyObject":8,"fbjs/lib/invariant":9,"fbjs/lib/warning":10,"object-assign":23,"prop-types/checkPropTypes":25}],46:[function(require,module,exports){
+},{"_process":28,"fbjs/lib/emptyFunction":11,"fbjs/lib/emptyObject":12,"fbjs/lib/invariant":13,"fbjs/lib/warning":14,"object-assign":27,"prop-types/checkPropTypes":29}],50:[function(require,module,exports){
 /** @license React v16.2.0
  * react.production.min.js
  *
@@ -5328,7 +5825,7 @@ var U={Children:{map:function(a,b,e){if(null==a)return a;var c=[];T(a,c,null,b,e
 d=a.key,g=a.ref,k=a._owner;if(null!=b){void 0!==b.ref&&(g=b.ref,k=G.current);void 0!==b.key&&(d=""+b.key);if(a.type&&a.type.defaultProps)var f=a.type.defaultProps;for(h in b)H.call(b,h)&&!I.hasOwnProperty(h)&&(c[h]=void 0===b[h]&&void 0!==f?f[h]:b[h])}var h=arguments.length-2;if(1===h)c.children=e;else if(1<h){f=Array(h);for(var l=0;l<h;l++)f[l]=arguments[l+2];c.children=f}return{$$typeof:r,type:a.type,key:d,ref:g,props:c,_owner:k}},createFactory:function(a){var b=J.bind(null,a);b.type=a;return b},
 isValidElement:K,version:"16.2.0",__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED:{ReactCurrentOwner:G,assign:m}},V=Object.freeze({default:U}),W=V&&U||V;module.exports=W["default"]?W["default"]:W;
 
-},{"fbjs/lib/emptyFunction":7,"fbjs/lib/emptyObject":8,"object-assign":23}],47:[function(require,module,exports){
+},{"fbjs/lib/emptyFunction":11,"fbjs/lib/emptyObject":12,"object-assign":27}],51:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5339,7 +5836,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 }).call(this,require('_process'))
-},{"./cjs/react.development.js":45,"./cjs/react.production.min.js":46,"_process":24}],48:[function(require,module,exports){
+},{"./cjs/react.development.js":49,"./cjs/react.production.min.js":50,"_process":28}],52:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -5398,7 +5895,7 @@ function applyMiddleware() {
     };
   };
 }
-},{"./compose":51}],49:[function(require,module,exports){
+},{"./compose":55}],53:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -5450,7 +5947,7 @@ function bindActionCreators(actionCreators, dispatch) {
   }
   return boundActionCreators;
 }
-},{}],50:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5596,7 +6093,7 @@ function combineReducers(reducers) {
   };
 }
 }).call(this,require('_process'))
-},{"./createStore":52,"./utils/warning":54,"_process":24,"lodash/isPlainObject":22}],51:[function(require,module,exports){
+},{"./createStore":56,"./utils/warning":58,"_process":28,"lodash/isPlainObject":26}],55:[function(require,module,exports){
 "use strict";
 
 exports.__esModule = true;
@@ -5633,7 +6130,7 @@ function compose() {
     };
   });
 }
-},{}],52:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -5895,7 +6392,7 @@ var ActionTypes = exports.ActionTypes = {
     replaceReducer: replaceReducer
   }, _ref2[_symbolObservable2['default']] = observable, _ref2;
 }
-},{"lodash/isPlainObject":22,"symbol-observable":57}],53:[function(require,module,exports){
+},{"lodash/isPlainObject":26,"symbol-observable":61}],57:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5944,7 +6441,7 @@ exports.bindActionCreators = _bindActionCreators2['default'];
 exports.applyMiddleware = _applyMiddleware2['default'];
 exports.compose = _compose2['default'];
 }).call(this,require('_process'))
-},{"./applyMiddleware":48,"./bindActionCreators":49,"./combineReducers":50,"./compose":51,"./createStore":52,"./utils/warning":54,"_process":24}],54:[function(require,module,exports){
+},{"./applyMiddleware":52,"./bindActionCreators":53,"./combineReducers":54,"./compose":55,"./createStore":56,"./utils/warning":58,"_process":28}],58:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -5970,7 +6467,7 @@ function warning(message) {
   } catch (e) {}
   /* eslint-enable no-empty */
 }
-},{}],55:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 'use strict';
 
 exports.__esModule = true;
@@ -6096,7 +6593,7 @@ function createStructuredSelector(selectors) {
     }, {});
   });
 }
-},{}],56:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 module.exports = function shallowEqual(objA, objB, compare, compareContext) {
 
     var ret = compare ? compare.call(compareContext, objA, objB) : void 0;
@@ -6148,10 +6645,10 @@ module.exports = function shallowEqual(objA, objB, compare, compareContext) {
 
 };
 
-},{}],57:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 module.exports = require('./lib/index');
 
-},{"./lib/index":58}],58:[function(require,module,exports){
+},{"./lib/index":62}],62:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6183,7 +6680,7 @@ if (typeof self !== 'undefined') {
 var result = (0, _ponyfill2['default'])(root);
 exports['default'] = result;
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./ponyfill.js":59}],59:[function(require,module,exports){
+},{"./ponyfill.js":63}],63:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {

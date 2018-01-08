@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import * as t from './types';
 
 type HrQueryPath = {
@@ -27,7 +28,7 @@ export default class HrQuery {
 
     ```javascript
     // in a reducer
-    s.key('some-key').setId('some-id', someValue)
+    s.key('some-key').id('some-id').set(someValue)
 
     // then later query it
     q.key('some-key').id('some-id') // returns `someValue`
@@ -99,6 +100,14 @@ export default class HrQuery {
     };
 
     return props;
+  }
+
+  /*
+    Get the mapping of ids to `HrStateDesc` objects. Unfortunately required
+    for cached selectors going from lists of ids to lists of values.
+  */
+  idsDescs() {
+    return this.st.byId[t.getKey(this.path.key)];
   }
 
   /*
@@ -186,18 +195,10 @@ export default class HrQuery {
     Gets the `HrStateDesc` object for the specified id, or null.
   */
   idDesc(id: string) {
-    const desc = this.st.byId[t.getKey(this.path.key)][id];
-    return desc || null;
-  }
+    const forKey = this.st.byId[t.getKey(this.path.key)];
+    if (!forKey) return null;
 
-  /*
-    Mostly for internal use.
-
-    Gets the `HrStateDesc` object for the current list.
-  */
-  listDesc() {
-    const key = t.getKey(this.path.key);
-    const desc = this.st.lists[key];
+    const desc = forKey[id];
     return desc || null;
   }
 
@@ -217,7 +218,10 @@ export default class HrQuery {
     Gets the `HrStateDesc` object for the specified key in the key/value pair.
   */
   kvDesc(id: string) {
-    const desc = this.st.kv[t.getKey(this.path.key)][id];
+    const forKey = this.st.kv[t.getKey(this.path.key)];
+    if (!forKey) return null;
+
+    const desc = forKey[id];
     return desc || null;
   }
 }

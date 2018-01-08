@@ -39,7 +39,7 @@ Scope the query to a specific key.
 
 ```javascript
 // in a reducer
-s.key('some-key').setId('some-id', someValue)
+s.key('some-key').id('some-id').set(someValue)
 
 // then later query it
 q.key('some-key').id('some-id') // returns `someValue`
@@ -95,6 +95,15 @@ q.idProps('some-user-id', 'foo')
 
 
 
+### `HrQuery::idsDescs`
+
+Signature: `.idsDescs()`
+
+Get the mapping of ids to `HrStateDesc` objects. Unfortunately required
+for cached selectors going from lists of ids to lists of values.
+
+
+
 ### `HrQuery::list`
 
 Signature: `.list()`
@@ -146,16 +155,6 @@ Signature: `.idDesc(id: string)`
 Mostly for internal use.
 
 Gets the `HrStateDesc` object for the specified id, or null.
-
-
-
-### `HrQuery::listDesc`
-
-Signature: `.listDesc()`
-
-Mostly for internal use.
-
-Gets the `HrStateDesc` object for the current list.
 
 
 

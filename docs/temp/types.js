@@ -1,4 +1,7 @@
 // @flow
+'use strict';
+
+import type HrQuery from './HrQuery';
 
 export function getKey(key: ?string) {
   if (!key) return '[[default]]';
@@ -26,4 +29,13 @@ export type HrState = {
   kv: HrStateKv,
   // TODO: implement this in some way
   // receipts: { [key: string]: any },
+}
+
+
+export type SelectorFunc = (query: HrQuery, state: Object) => any
+export type SelectorMapping = { [selectorName: string]: SelectorFunc }
+
+export type SubscribeDescriptor = {
+  handler: (selfState: Object, ownProps: Object, dispatch: Function, state: ?Object) => mixed,
+  needsState?: boolean,
 }

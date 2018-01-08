@@ -1,4 +1,5 @@
 // @flow
+'use strict';
 import * as t from './types';
 import HrQuery from './HrQuery';
 
@@ -64,15 +65,17 @@ type HrStateWrapperOp = {
 const TEST_TIME = 1500000000000;
 
 function makeInfo(state: t.HrState): StateInfo {
-  return {
+  const infoObj = {
     state,
     ops: [],
     time: process.env.NODE_ENV === 'test' ? TEST_TIME : Date.now(),
   };
+
+  return infoObj;
 }
 
 function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
-  return {
+  const pathObj = {
     isHrStatePath: true,
     type: parent ? parent.path.type : null,
     typeValue: parent ? parent.path.typeValue : null,
@@ -80,10 +83,14 @@ function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
     info,
     parent,
   };
+
+  return pathObj;
 }
 
 export function wrapperFromState(_state: ?t.HrState) {
   const state: t.HrState = _state || makeDefaultHrState();
+  if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
+
   const info = makeInfo(state);
   const path = makePath(info);
   return new HrStateWrapper(path);
@@ -166,8 +173,23 @@ export class HrStateWrapper {
   /*
     Get an `HrQuery` object for the state.
   */
-  query() {
+  queryRoot() {
     return new HrQuery(this.path.info.state);
+  }
+
+  query() {
+    let q = new HrQuery(this.path.info.state);
+    if (this.path.key) q = q.key(this.path.key);
+
+    if (this.path.type === 'id' && this.path.typeValue) {
+      q = q.id(this.path.typeValue);
+    } else if (this.path.type === 'list') {
+      q = q.list();
+    } else if (this.path.type === 'kv' && this.path.typeValue) {
+      q = q.kv(this.path.typeValue);
+    }
+
+    return q;
   }
 
   /*
@@ -273,6 +295,8 @@ export class HrStateWrapper {
     let { state, ops } = sw.path.info;
     if (!ops.length) return state;
 
+    if (process.env.NODE_ENV === 'test') require('deep-freeze')(state);
+
     state = { ...state };
 
     // Track which things we've cloned to improve performance, and avoid
@@ -311,6 +335,20 @@ export class HrStateWrapper {
 
           // $FlowFixMe
           state[stateKey][key][op.typeValue] = makeHrStateDesc(op.data, opts);
+        }
+
+        if (op.op === 'updateValue') {
+          // $FlowFixMe
+          const currentDesc = state[stateKey][key][op.typeValue];
+          if (currentDesc) {
+            const current = currentDesc.value;
+            const updateData = op.data(current);
+            if (updateData != null) {
+              const value = { ...current, ...updateData };
+              // $FlowFixMe
+              state[stateKey][key][op.typeValue] = { ...currentDesc, value };
+            }
+          }
         }
 
         if (op.op === 'setIds') {
@@ -364,7 +402,7 @@ export class HrStateWrapper {
           const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
           Object.assign(desc, op.data);
           // $FlowFixMe
-          state[stateKey][key] = desc;
+          state.lists[key] = desc;
         }
 
         if (op.op === 'setInDesc') {
@@ -377,7 +415,7 @@ export class HrStateWrapper {
           final[op.data.path[op.data.path.length - 1]] = op.data.value;
 
           // $FlowFixMe
-          state[stateKey][key] = desc;
+          state.lists[key] = desc;
         }
       }
     }

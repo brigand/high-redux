@@ -90,11 +90,17 @@ s.key('some-key').id('some-id').set('foo')
 
 
 
+### `HrStateWrapper::queryRoot`
+
+Signature: `.queryRoot()`
+
+Get an `HrQuery` object for the state.
+
+
+
 ### `HrStateWrapper::query`
 
 Signature: `.query()`
-
-Get an `HrQuery` object for the state.
 
 
 
