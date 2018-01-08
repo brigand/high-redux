@@ -28,7 +28,7 @@ export default class HrQuery {
 
     ```javascript
     // in a reducer
-    s.key('some-key').setId('some-id', someValue)
+    s.key('some-key').id('some-id').set(someValue)
 
     // then later query it
     q.key('some-key').id('some-id') // returns `someValue`
@@ -104,7 +104,7 @@ export default class HrQuery {
 
   /*
     Get the mapping of ids to `HrStateDesc` objects. Unfortunately required
-    for cached selectors going from lists of ids to values at those ids.
+    for cached selectors going from lists of ids to lists of values.
   */
   idsDescs() {
     return this.st.byId[t.getKey(this.path.key)];
