@@ -207,4 +207,14 @@ describe('HrStateWrapper optimistic', () => {
 
     expect(s2.byId[getKey()]).toEqual({});
   });
+
+  it(`clearOptimistic`, () => {
+    const s = wrapperFromState()
+      .kv('foo').set('a').getState();
+
+    const s2 = wrapperFromState(s).optimistic('op').kv('foo').set('b').getState();
+
+    const s3 = wrapperFromState(s2).clearOptimistic('op').getState();
+    expect(s3.rollbackOps).toEqual({});
+  });
 });

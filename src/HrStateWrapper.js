@@ -391,6 +391,18 @@ export class HrStateWrapper {
   }
 
   /*
+    Clear optimistic updates for the given key. Usually good to do this when
+    your operation succeeds.
+  */
+  clearOptimistic(id: ?string) {
+    const id2 = id || '[[default]]';
+
+    this._pushOp('clearOptimistic', id2);
+
+    return this;
+  }
+
+  /*
     Rolls back a previous optimistic update.
 
     ```javascript
@@ -456,6 +468,12 @@ export class HrStateWrapper {
       const op = ops[i];
 
       const key = t.getKey(op.key);
+
+      if (op.op === 'clearOptimistic') {
+        cloned.rollbackOps = true;
+        state.rollbackOps = { ...state.rollbackOps };
+        delete state.rollbackOps[op.data];
+      }
 
       if (op.type === 'id' || op.type === 'kv') {
         const stateKey = op.type === 'id' ? 'byId' : 'kv';
@@ -592,6 +610,7 @@ export class HrStateWrapper {
             newValue = { ...final[prop], ...newValue };
 
             if (optimisticId) {
+              // $FlowFixMe
               if (state[stateKey][key][op.typeValue]) {
                 const changed = Object.keys(updateValue);
                 const original = changed.reduce((acc, key) => {

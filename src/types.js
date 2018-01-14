@@ -19,7 +19,7 @@ export type HrStateDesc<T> = {
 }
 
 export type PathType = 'id' | 'list' | 'kv';
-export type OpType = 'setIds' | 'updateInDesc' | 'deleteDesc' | 'listOp';
+export type OpType = 'setIds' | 'updateInDesc' | 'deleteDesc' | 'listOp' | 'clearOptimistic';
 
 export type HrStateWrapperOp = {
   op: OpType,
