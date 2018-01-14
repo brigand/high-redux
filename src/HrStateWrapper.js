@@ -592,24 +592,33 @@ export class HrStateWrapper {
             newValue = { ...final[prop], ...newValue };
 
             if (optimisticId) {
-              const changed = Object.keys(updateValue);
-              const original = changed.reduce((acc, key) => {
-                if (final[prop]) {
-                  acc[key] = final[prop][key];
-                } else {
-                  throw new Error(`Something is wrong in updateInDesc`);
-                }
-                return acc;
-              }, {});
+              if (state[stateKey][key][op.typeValue]) {
+                const changed = Object.keys(updateValue);
+                const original = changed.reduce((acc, key) => {
+                  if (final[prop]) {
+                    acc[key] = final[prop][key];
+                  } else {
+                    acc[key] = undefined;
+                  }
+                  return acc;
+                }, {});
 
-              addRollback(optimisticId, {
-                ...op,
-                data: {
-                  path: op.data.path,
-                  value: original,
-                },
-              });
+                addRollback(optimisticId, {
+                  ...op,
+                  data: {
+                    path: op.data.path,
+                    value: original,
+                  },
+                });
+              } else {
+                addRollback(optimisticId, {
+                  ...op,
+                  op: 'deleteDesc',
+                  data: null,
+                });
+              }
             }
+
 
             if (prop) {
               final[prop] = newValue;

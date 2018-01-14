@@ -195,4 +195,16 @@ describe('HrStateWrapper optimistic', () => {
     expect(s3.byId['[[default]]'].ak).toBeTruthy();
     expect(s3.byId['[[default]]'].ck).toBe(undefined);
   });
+
+  it(`id/kv set new`, () => {
+    const s = wrapperFromState()
+      .id('foo').optimistic('op').set({ x: 1 }).getState();
+
+    const q = new HrQuery(s);
+    expect(q.id('foo')).toEqual({ x: 1 });
+
+    const s2 = wrapperFromState(s).optimistic('op').rollback().getState();
+
+    expect(s2.byId[getKey()]).toEqual({});
+  });
 });
