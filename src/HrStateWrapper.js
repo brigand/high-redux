@@ -317,6 +317,61 @@ export class HrStateWrapper {
   }
 
   /*
+    Push an item to the list.
+
+    Throws if not in list mode.
+  */
+  push(...items: Array<any>) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { items: items, listOp: 'push' });
+    return this;
+  }
+
+  /*
+    Adds an item to the start of the list.
+
+    Throws if not in list mode.
+  */
+  unshift(...items: Array<any>) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { items: items, listOp: 'unshift' });
+
+    return this;
+  }
+
+  /*
+    Removes items from the end of the list. The count defaults to 1.
+
+    Throws if not in list mode.
+  */
+  pop(count: number = 1) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { count, listOp: 'pop' });
+
+    return this;
+  }
+
+  /*
+    Removes items from the start of the list. The count defaults to 1.
+
+    Throws if not in list mode.
+  */
+  shift(count: number = 1) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { count, listOp: 'shift' });
+
+    return this;
+  }
+
+  /*
     Set this operation to be optimistic, which can be rolled back on future
     state wrappers.
 
@@ -626,6 +681,84 @@ export class HrStateWrapper {
 
           // $FlowFixMe
           state.lists[key] = desc;
+        }
+
+        if (op.op === 'listOp') {
+          const { optimisticId } = op;
+          const { listOp, count, items } = op.data;
+          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc([]);
+
+          if (listOp === 'push') {
+            desc.value = desc.value.concat(items);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'removeItems',
+                  items,
+                },
+              });
+            }
+          }
+          if (listOp === 'unshift') {
+            desc.value = items.concat(desc.value);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'removeItems',
+                  items,
+                },
+              });
+            }
+          }
+          if (listOp === 'pop') {
+            const current = desc.value || [];
+
+            const removed = current.slice(-1 * count);
+            desc.value = current.slice(0, -1 * count);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'push',
+                  items: removed,
+                },
+              });
+            }
+          }
+
+          if (listOp === 'shift') {
+            const current = desc.value || [];
+
+            const removed = current.slice(0, count);
+            desc.value = current.slice(count);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'unshift',
+                  items: removed,
+                },
+              });
+            }
+          }
+          if (listOp === 'removeItems') {
+            desc.value = desc.value.filter(x => items.indexOf(x) === -1);
+            state.lists[key] = desc;
+          }
         }
       }
     }

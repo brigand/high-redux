@@ -77,6 +77,50 @@ describe(`HrStateWrapper list`, () => {
     const state = s.getState();
     expect(state.lists[getKey()].value).toEqual(['v1', 'v2']);
   });
+
+  it(`push`, () => {
+    const s = wrapperFromState().list().set(['v1', 'v2']);
+
+    const s2 = wrapperFromState(s.getState()).optimistic('foo').list().push('v3', 'v4');
+
+    expect(s2.getState().lists[getKey()].value).toEqual(['v1', 'v2', 'v3', 'v4']);
+
+    const s3 = wrapperFromState(s2.getState()).optimistic('foo').rollback();
+    expect(s3.getState().lists[getKey()].value).toEqual(['v1', 'v2']);
+  });
+
+  it(`unshift`, () => {
+    const s = wrapperFromState().list().set(['v1', 'v2']);
+
+    const s2 = wrapperFromState(s.getState()).optimistic('foo').list().unshift('v3', 'v4');
+
+    expect(s2.getState().lists[getKey()].value).toEqual(['v3', 'v4', 'v1', 'v2']);
+
+    const s3 = wrapperFromState(s2.getState()).optimistic('foo').rollback();
+    expect(s3.getState().lists[getKey()].value).toEqual(['v1', 'v2']);
+  });
+
+  it(`pop`, () => {
+    const s = wrapperFromState().list().set(['v1', 'v2', 'v3', 'v4']);
+
+    const s2 = wrapperFromState(s.getState()).optimistic('foo').list().pop(2);
+
+    expect(s2.getState().lists[getKey()].value).toEqual(['v1', 'v2']);
+
+    const s3 = wrapperFromState(s2.getState()).optimistic('foo').rollback();
+    expect(s3.getState().lists[getKey()].value).toEqual(['v1', 'v2', 'v3', 'v4']);
+  });
+
+  it(`shift`, () => {
+    const s = wrapperFromState().list().set(['v1', 'v2', 'v3', 'v4']);
+
+    const s2 = wrapperFromState(s.getState()).optimistic('foo').list().shift(2);
+
+    expect(s2.getState().lists[getKey()].value).toEqual(['v3', 'v4']);
+
+    const s3 = wrapperFromState(s2.getState()).optimistic('foo').rollback();
+    expect(s3.getState().lists[getKey()].value).toEqual(['v1', 'v2', 'v3', 'v4']);
+  });
 });
 
 
