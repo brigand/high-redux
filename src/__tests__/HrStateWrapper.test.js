@@ -1,4 +1,5 @@
 import { wrapperFromState } from '../HrStateWrapper';
+import HrQuery from '../HrQuery';
 import { getKey } from '../types';
 
 describe(`HrStateWrapper basic`, () => {
@@ -97,5 +98,57 @@ describe(`HrStateWrapper kv`, () => {
     const state = s.getState();
     expect(state.kv[getKey()].test.value).toBe('val');
     expect(state.kv[getKey()].test.etc.x).toBe(1);
+  });
+});
+
+describe('HrStateWrapper optimistic', () => {
+  it(`id/kv set`, () => {
+    const s = wrapperFromState()
+      .kv('foo').set('a').getState();
+
+    const s2 = wrapperFromState(s).optimistic('op').kv('foo').set('b').getState();
+
+    const s3 = wrapperFromState(s2).optimistic('op').rollback().getState();
+
+    const q = new HrQuery(s3);
+    expect(q.kv('foo')).toBe('a');
+  });
+
+  it(`id/kv updateValue`, () => {
+    const s = wrapperFromState()
+      .kv('foo').set({ a: 1, b: 2, c: 3 }).getState();
+
+    const s2 = wrapperFromState(s).optimistic('op').kv('foo').update(o => ({
+      b: 'this will be reverted',
+    })).getState();
+
+    const s3 = wrapperFromState(s2).kv('foo').update(o => ({ c: 3 })).getState();
+    const s4 = wrapperFromState(s2).optimistic('op').rollback().getState();
+
+    const q = new HrQuery(s4);
+    expect(q.kv('foo')).toEqual({ a: 1, b: 2, c: 3 });
+  });
+
+  it(`id/kv setIds`, () => {
+    const s = wrapperFromState()
+      .setIds([
+        ['ak', 'av'],
+        ['bk', 'bv'],
+      ]).getState();
+
+    const s2 = wrapperFromState(s).optimistic('op').setIds([
+      ['bk', 'this will be reset'],
+      ['ck', 'this will be removed'],
+    ]).getState();
+
+    const s3 = wrapperFromState(s2).optimistic('op').rollback().getState();
+
+    const q = new HrQuery(s3);
+    expect(q.id('ak')).toBe('av');
+    expect(q.id('bk')).toBe('bv');
+
+    // Assert that we deleted the 'ck' key
+    expect(s3.byId['[[default]]'].ak).toBeTruthy();
+    expect(s3.byId['[[default]]'].ck).toBe(undefined);
   });
 });

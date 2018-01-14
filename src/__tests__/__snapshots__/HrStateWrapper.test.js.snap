@@ -34,7 +34,7 @@ Object {
       "etc": Object {},
       "hasError": false,
       "loading": false,
-      "loadingCompleteTime": 1500000000000,
+      "loadingCompleteTime": 0,
       "loadingStartTime": 0,
       "value": Array [
         "some-id",
@@ -42,5 +42,6 @@ Object {
       ],
     },
   },
+  "rollbackOps": Object {},
 }
 `;
