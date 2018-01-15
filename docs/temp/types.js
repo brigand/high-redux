@@ -18,17 +18,30 @@ export type HrStateDesc<T> = {
   etc: Object,
 }
 
+export type PathType = 'id' | 'list' | 'kv';
+export type OpType = 'setIds' | 'updateInDesc' | 'deleteDesc' | 'listOp' | 'clearOptimistic';
+
+export type HrStateWrapperOp = {
+  op: OpType,
+  data: any,
+  type: ?PathType,
+  typeValue: string | null,
+  key: ?string,
+  optimisticId: ?string,
+};
+
 export type HrStateById = { [type: string]: { [id: string]: HrStateDesc<any> } };
 export type HrStateList = { [type: string]: HrStateDesc<Array<any>> };
 export type HrStateKv = { [type: string]: { [id: string]: HrStateDesc<any> } };
+export type RollbackOp = HrStateWrapperOp;
+export type RollbackOps = { [id: string]: Array<RollbackOp> };
 
 export type HrState = {
   isHrState: true,
   byId: HrStateById,
   lists: HrStateList,
   kv: HrStateKv,
-  // TODO: implement this in some way
-  // receipts: { [key: string]: any },
+  rollbackOps: RollbackOps,
 }
 
 

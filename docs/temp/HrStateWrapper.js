@@ -11,6 +11,7 @@ export function makeDefaultHrState(): t.HrState {
     byId: {},
     lists: {},
     kv: {},
+    rollbackOps: {},
   };
 }
 
@@ -27,12 +28,9 @@ export function makeHrStateDesc<T>(value: T, properties: ?$Shape<t.HrStateDesc<T
   };
 }
 
-type PathType = 'id' | 'list' | 'kv';
-type OpType = 'set' | 'setIds' | 'updateValue' | 'mergeDesc' | 'setInDesc';
-
 type StateInfo = {
   state: t.HrState,
-  ops: Array<HrStateWrapperOp>,
+  ops: Array<t.HrStateWrapperOp>,
   time: number,
 }
 
@@ -40,7 +38,7 @@ type StatePath = {
   isHrStatePath: true,
 
   // The type of selector, defaults to null.
-  type: ?PathType,
+  type: ?t.PathType,
 
   // The value for the selector. Used by id and kv types
   typeValue: string | null,
@@ -50,17 +48,9 @@ type StatePath = {
 
   info: StateInfo,
   parent: ?HrStateWrapper,
+
+  optimisticId: ?string,
 }
-
-// Mirrows StatePath
-type HrStateWrapperOp = {
-  op: OpType,
-  data: any,
-  type: ?PathType,
-  typeValue: string | null,
-  key: ?string,
-};
-
 
 const TEST_TIME = 1500000000000;
 
@@ -82,6 +72,7 @@ function makePath(info: StateInfo, parent: ?HrStateWrapper): StatePath {
     key: parent ? parent.path.key : null,
     info,
     parent,
+    optimisticId: parent ? parent.path.optimisticId : null,
   };
 
   return pathObj;
@@ -196,7 +187,11 @@ export class HrStateWrapper {
     Sets the currently focused item. See the examples for `id`/`list`/`kv`
   */
   set(value: any) {
-    this._pushOp('set', value);
+    this._pushOp('updateInDesc', {
+      path: ['value'],
+      value,
+      merge: false,
+    });
     return this;
   }
 
@@ -220,7 +215,15 @@ export class HrStateWrapper {
     Update an item with the given id by passing it to the 'updater' function.
   */
   update(updater: Function) {
-    this._pushOp('updateValue', updater);
+    this._pushOp('updateInDesc', { path: ['value'], updater, merge: true });
+    return this;
+  }
+
+  /*
+    Update an item with the given id by passing it to the 'updater' function.
+  */
+  updateIn(updatePath: Array<string | number>, updater: Function) {
+    this._pushOp('updateInDesc', { path: ['value'].concat(updatePath), updater, merge: true });
     return this;
   }
 
@@ -232,9 +235,18 @@ export class HrStateWrapper {
     ```
   */
   setLoading() {
-    const desc: Object = { hasError: false, loading: true, loadingStartTime: this.path.info.time };
-
-    this._pushOp('mergeDesc', desc);
+    this._pushOp('updateInDesc', {
+      path: ['hasError'],
+      value: false,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loading'],
+      value: true,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loadingStartTime'],
+      value: this.path.info.time,
+    });
 
     return this;
   }
@@ -247,9 +259,18 @@ export class HrStateWrapper {
     ```
   */
   setLoadingDone() {
-    const desc: Object = { hasError: false, loading: false, loadingCompleteTime: this.path.info.time };
-
-    this._pushOp('mergeDesc', desc);
+    this._pushOp('updateInDesc', {
+      path: ['hasError'],
+      value: false,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loading'],
+      value: false,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loadingCompleteTime'],
+      value: this.path.info.time,
+    });
 
     return this;
   }
@@ -262,14 +283,22 @@ export class HrStateWrapper {
     ```
   */
   setError(error: ?any) {
-    const desc: Object = {
-      hasError: error != null,
-      error: error,
-      loading: false,
-      loadingCompleteTime: this.path.info.time,
-    };
-
-    this._pushOp('mergeDesc', desc);
+    this._pushOp('updateInDesc', {
+      path: ['hasError'],
+      value: error != null,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['error'],
+      value: error,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loading'],
+      value: false,
+    });
+    this._pushOp('updateInDesc', {
+      path: ['loadingCompleteTime'],
+      value: this.path.info.time,
+    });
 
     return this;
   }
@@ -282,7 +311,117 @@ export class HrStateWrapper {
     ```
   */
   setMeta(metaKey: string, metaValue: any) {
-    this._pushOp('setInDesc', { path: ['etc', metaKey], value: metaValue });
+    this._pushOp('updateInDesc', { path: ['etc', metaKey], value: metaValue });
+
+    return this;
+  }
+
+  /*
+    Push an item to the list.
+
+    Throws if not in list mode.
+  */
+  push(...items: Array<any>) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { items: items, listOp: 'push' });
+    return this;
+  }
+
+  /*
+    Adds an item to the start of the list.
+
+    Throws if not in list mode.
+  */
+  unshift(...items: Array<any>) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { items: items, listOp: 'unshift' });
+
+    return this;
+  }
+
+  /*
+    Removes items from the end of the list. The count defaults to 1.
+
+    Throws if not in list mode.
+  */
+  pop(count: number = 1) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { count, listOp: 'pop' });
+
+    return this;
+  }
+
+  /*
+    Removes items from the start of the list. The count defaults to 1.
+
+    Throws if not in list mode.
+  */
+  shift(count: number = 1) {
+    if (this.path.type !== 'list') {
+      throw new Error(`Attempted to push while in ${this.path.type || '(none)'} mode.`);
+    }
+    this._pushOp('listOp', { count, listOp: 'shift' });
+
+    return this;
+  }
+
+  /*
+    Set this operation to be optimistic, which can be rolled back on future
+    state wrappers.
+
+    ```javascript
+    s.optimistic('token').id('some-id').set(value);
+
+    // in the future
+    s.optimistic('token').rollback()
+    ```
+  */
+  optimistic(id: ?string) {
+    const id2 = id || '[[default]]';
+
+    const path = makePath(this.path.info, this);
+    path.optimisticId = id2;
+    return new HrStateWrapper(path);
+  }
+
+  /*
+    Clear optimistic updates for the given key. Usually good to do this when
+    your operation succeeds.
+  */
+  clearOptimistic(id: ?string) {
+    const id2 = id || '[[default]]';
+
+    this._pushOp('clearOptimistic', id2);
+
+    return this;
+  }
+
+  /*
+    Rolls back a previous optimistic update.
+
+    ```javascript
+    s.optimistic('token').rollback()
+    ```
+  */
+  rollback() {
+    const id = this.path.optimisticId;
+
+    if (!id) {
+      throw new Error(`You must call .optimistic before you can rollback an update.`);
+    }
+
+    const ops = this.path.info.state.rollbackOps[id];
+    if (!ops) {
+      throw new Error(`Attempted to rollback optimistic update "${id}" which doesn't exist.`);
+    }
+
+    this.path.info.ops.push(...ops);
 
     return this;
   }
@@ -301,23 +440,46 @@ export class HrStateWrapper {
 
     // Track which things we've cloned to improve performance, and avoid
     // cloning objects that don't need to be cloned.
-    const cloned = { id: false, list: false, kv: false };
+    const cloned = { id: false, list: false, kv: false, rollbackOps: false };
     const clonedKey = {
       id: Object.create(null),
       list: Object.create(null),
       kv: Object.create(null),
     };
 
+    const updatedRollbacks = {};
+    const addRollback = (id: string, op: t.HrStateWrapperOp) => {
+      if (!cloned.rollbackOps) {
+        cloned.rollbackOps = true;
+        state.rollbackOps = { ...state.rollbackOps };
+      }
+
+      if (!updatedRollbacks[id]) {
+        state.rollbackOps[id] = [];
+        updatedRollbacks[id] = true;
+      }
+
+      op.optimisticId = null;
+
+      state.rollbackOps[id].push(op);
+    }
+
     for (let i = 0; i < ops.length; i += 1) {
       const op = ops[i];
 
       const key = t.getKey(op.key);
 
+      if (op.op === 'clearOptimistic') {
+        cloned.rollbackOps = true;
+        state.rollbackOps = { ...state.rollbackOps };
+        delete state.rollbackOps[op.data];
+      }
+
       if (op.type === 'id' || op.type === 'kv') {
         const stateKey = op.type === 'id' ? 'byId' : 'kv';
         if (!cloned[op.type]) {
           cloned[op.type] = true;
-          state[stateKey] = { ...state.byId };
+          state[stateKey] = { ...state[stateKey] };
         }
 
         if (!clonedKey[op.type][key]) {
@@ -333,51 +495,175 @@ export class HrStateWrapper {
             opts.loadingStartTime = state[stateKey][key][op.typeValue].loadingStartTime;
           }
 
+          if (op.optimisticId) {
+            addRollback(op.optimisticId, {
+              ...op,
+              // $FlowFixMe
+              data: state[stateKey][key][op.typeValue] !== undefined ? state[stateKey][key][op.typeValue].value : undefined,
+            });
+          }
+
           // $FlowFixMe
           state[stateKey][key][op.typeValue] = makeHrStateDesc(op.data, opts);
         }
 
-        if (op.op === 'updateValue') {
+        if (op.op === 'setIds') {
+          const optimisticId = op.optimisticId;
+
+          const newDescs = [];
+
+          for (let i = 0; i < op.data.length; i += 1) {
+            const pair = op.data[i];
+            newDescs.push(makeHrStateDesc(pair[1]));
+          }
+
+          if (optimisticId) {
+            const newDescsMapping = {};
+            const oldDescPairs = [];
+            const oldDescNotExist = [];
+            for (let i = 0; i < op.data.length; i += 1) {
+              const pair = op.data[i];
+              const curr = state[stateKey][key][pair[0]];
+              newDescsMapping[pair[0]] = newDescs[i];
+              if (curr) {
+                const oldValue = state[stateKey][key][pair[0]];
+                oldDescPairs.push([pair[0], oldValue]);
+              } else {
+                oldDescNotExist.push(pair[0]);
+              }
+            }
+
+            for (const pair of oldDescPairs) {
+              addRollback(optimisticId, {
+                ...op,
+                type: 'id',
+                typeValue: pair[0],
+                op: 'updateInDesc',
+                data: {
+                  path: [],
+                  value: pair[1],
+                },
+              });
+            }
+
+            for (const id of oldDescNotExist) {
+              addRollback(optimisticId, {
+                ...op,
+                type: 'id',
+                typeValue: id,
+                op: 'deleteDesc',
+                data: {},
+              });
+            }
+          }
+
+          for (let i = 0; i < op.data.length; i += 1) {
+            const pair = op.data[i];
+            state[stateKey][key][pair[0]] = newDescs[i];
+          }
+        }
+
+        if (op.op === 'deleteDesc') {
+          const { optimisticId } = op;
+
           // $FlowFixMe
-          const currentDesc = state[stateKey][key][op.typeValue];
-          if (currentDesc) {
-            const current = currentDesc.value;
-            const updateData = op.data(current);
-            if (updateData != null) {
-              const value = { ...current, ...updateData };
-              // $FlowFixMe
-              state[stateKey][key][op.typeValue] = { ...currentDesc, value };
+          const current = state[stateKey][key][op.typeValue];
+
+          if (current) {
+            // $FlowFixMe
+            delete state[stateKey][key][op.typeValue];
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'updateInDesc',
+                data: {
+                  path: ['value'],
+                  data: current,
+                },
+              });
             }
           }
         }
 
-        if (op.op === 'setIds') {
-          for (let i = 0; i < op.data.length; i += 1) {
-            const pair = op.data[i];
-            state[stateKey][key][pair[0]] = makeHrStateDesc(pair[1]);
-          }
-        }
-
-        if (op.op === 'mergeDesc') {
-          // $FlowFixMe
-          const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
-          Object.assign(desc, op.data);
-          // $FlowFixMe
-          state[stateKey][key][op.typeValue] = desc;
-        }
-
-        if (op.op === 'setInDesc') {
+        if (op.op === 'updateInDesc') {
           // $FlowFixMe
           const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
 
-          const final = op.data.path.slice(0, -1).reduce((acc, k) => {
+          const opPath = [...op.data.path];
+          let final = opPath.slice(0, -1).reduce((acc, k) => {
             desc[k] = { ...desc[k] };
             return desc[k];
           }, desc);
-          final[op.data.path[op.data.path.length - 1]] = op.data.value;
 
-          // $FlowFixMe
-          state[stateKey][key][op.typeValue] = desc;
+          // Apply the updater function to the new value
+          const prop = opPath[opPath.length - 1];
+
+          const updateValue = op.data.updater ? op.data.updater(prop ? final[prop] : final) : op.data.value;
+          let newValue = updateValue;
+          let changed = null;
+
+          const { optimisticId } = op;
+
+          // If it's a non-array object, then merge it into the previous value
+          if (newValue && typeof newValue === 'object' && !Array.isArray(newValue)) {
+            newValue = { ...final[prop], ...newValue };
+
+            if (optimisticId) {
+              // $FlowFixMe
+              if (state[stateKey][key][op.typeValue]) {
+                const changed = Object.keys(updateValue);
+                const original = changed.reduce((acc, key) => {
+                  if (final[prop]) {
+                    acc[key] = final[prop][key];
+                  } else {
+                    acc[key] = undefined;
+                  }
+                  return acc;
+                }, {});
+
+                addRollback(optimisticId, {
+                  ...op,
+                  data: {
+                    path: op.data.path,
+                    value: original,
+                  },
+                });
+              } else {
+                addRollback(optimisticId, {
+                  ...op,
+                  op: 'deleteDesc',
+                  data: null,
+                });
+              }
+            }
+
+
+            if (prop) {
+              final[prop] = newValue;
+            } else {
+              final = newValue;
+            }
+          } else {
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                data: {
+                  path: op.data.path,
+                  value: prop ? final[prop] : final,
+                },
+              });
+            }
+          }
+
+          if (!prop) {
+            // $FlowFixMe
+            state[stateKey][key][op.typeValue] = final;
+          } else {
+            final[prop] = newValue;
+            // $FlowFixMe
+            state[stateKey][key][op.typeValue] = desc;
+          }
         }
       }
 
@@ -387,35 +673,120 @@ export class HrStateWrapper {
           state.lists = { ...state.lists };
         }
 
-        if (op.op === 'set') {
-          const opts: $Shape<t.HrStateDesc<any>> = {};
-          opts.loadingCompleteTime = this.path.info.time;
-          // $FlowFixMe
-          if (state.lists[key]) {
-            opts.loadingStartTime = state.lists[key].loadingStartTime;
-          }
-          // $FlowFixMe
-          state.lists[key] = makeHrStateDesc(op.data, opts);
-        }
-
-        if (op.op === 'mergeDesc') {
-          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
-          Object.assign(desc, op.data);
-          // $FlowFixMe
-          state.lists[key] = desc;
-        }
-
-        if (op.op === 'setInDesc') {
+        if (op.op === 'updateInDesc') {
           const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
 
-          const final = op.data.path.slice(0, -1).reduce((acc, k) => {
+          const opPath = [...op.data.path];
+
+          let final = opPath.slice(0, -1).reduce((acc, k) => {
             desc[k] = { ...desc[k] };
             return desc[k];
           }, desc);
-          final[op.data.path[op.data.path.length - 1]] = op.data.value;
+
+          // Apply the updater function to the new value
+          const prop = opPath[opPath.length - 1];
+
+          const updateValue = op.data.updater ? op.data.updater(prop ? final[prop] : final) : op.data.value;
+          let newValue = updateValue;
+
+          const { optimisticId } = op;
+
+          if (optimisticId) {
+            addRollback(optimisticId, {
+              ...op,
+              data: {
+                path: op.data.path,
+                value: prop ? final[prop] : final,
+              },
+            });
+          }
+
+          if (prop) {
+            final[prop] = newValue;
+          } else {
+            final = newValue;
+          }
 
           // $FlowFixMe
           state.lists[key] = desc;
+        }
+
+        if (op.op === 'listOp') {
+          const { optimisticId } = op;
+          const { listOp, count, items } = op.data;
+          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc([]);
+
+          if (listOp === 'push') {
+            desc.value = desc.value.concat(items);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'removeItems',
+                  items,
+                },
+              });
+            }
+          }
+          if (listOp === 'unshift') {
+            desc.value = items.concat(desc.value);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'removeItems',
+                  items,
+                },
+              });
+            }
+          }
+          if (listOp === 'pop') {
+            const current = desc.value || [];
+
+            const removed = current.slice(-1 * count);
+            desc.value = current.slice(0, -1 * count);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'push',
+                  items: removed,
+                },
+              });
+            }
+          }
+
+          if (listOp === 'shift') {
+            const current = desc.value || [];
+
+            const removed = current.slice(0, count);
+            desc.value = current.slice(count);
+            state.lists[key] = desc;
+
+            if (optimisticId) {
+              addRollback(optimisticId, {
+                ...op,
+                op: 'listOp',
+                data: {
+                  listOp: 'unshift',
+                  items: removed,
+                },
+              });
+            }
+          }
+          if (listOp === 'removeItems') {
+            desc.value = desc.value.filter(x => items.indexOf(x) === -1);
+            state.lists[key] = desc;
+          }
         }
       }
     }
@@ -438,13 +809,14 @@ export class HrStateWrapper {
   /*
     Internal: adds an operation to the queue
   */
-  _pushOp(op: OpType, data: any, overrides: $Shape<HrStateWrapperOp> = {}) {
+  _pushOp(op: t.OpType, data: any, overrides: $Shape<t.HrStateWrapperOp> = {}) {
     this.path.info.ops.push({
       op,
       key: this.path.key,
       type: this.path.type,
       typeValue: this.path.typeValue,
       data,
+      optimisticId: this.path.optimisticId,
       ...overrides,
     });
   }

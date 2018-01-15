@@ -489,6 +489,8 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.HrStateWrapper = undefined;
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
@@ -509,6 +511,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 // eslint-disable-next-line
@@ -518,7 +522,8 @@ function makeDefaultHrState() {
     isHrState: true,
     byId: {},
     lists: {},
-    kv: {}
+    kv: {},
+    rollbackOps: {}
   };
 }
 
@@ -533,9 +538,6 @@ function makeHrStateDesc(value, properties) {
     etc: {}
   }, properties);
 }
-
-// Mirrows StatePath
-
 
 var TEST_TIME = 1500000000000;
 
@@ -556,7 +558,8 @@ function makePath(info, parent) {
     typeValue: parent ? parent.path.typeValue : null,
     key: parent ? parent.path.key : null,
     info: info,
-    parent: parent
+    parent: parent,
+    optimisticId: parent ? parent.path.optimisticId : null
   };
 
   return pathObj;
@@ -701,7 +704,11 @@ var HrStateWrapper = function () {
   }, {
     key: 'set',
     value: function set(value) {
-      this._pushOp('set', value);
+      this._pushOp('updateInDesc', {
+        path: ['value'],
+        value: value,
+        merge: false
+      });
       return this;
     }
 
@@ -729,7 +736,18 @@ var HrStateWrapper = function () {
   }, {
     key: 'update',
     value: function update(updater) {
-      this._pushOp('updateValue', updater);
+      this._pushOp('updateInDesc', { path: ['value'], updater: updater, merge: true });
+      return this;
+    }
+
+    /*
+      Update an item with the given id by passing it to the 'updater' function.
+    */
+
+  }, {
+    key: 'updateIn',
+    value: function updateIn(updatePath, updater) {
+      this._pushOp('updateInDesc', { path: ['value'].concat(updatePath), updater: updater, merge: true });
       return this;
     }
 
@@ -743,9 +761,18 @@ var HrStateWrapper = function () {
   }, {
     key: 'setLoading',
     value: function setLoading() {
-      var desc = { hasError: false, loading: true, loadingStartTime: this.path.info.time };
-
-      this._pushOp('mergeDesc', desc);
+      this._pushOp('updateInDesc', {
+        path: ['hasError'],
+        value: false
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loading'],
+        value: true
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loadingStartTime'],
+        value: this.path.info.time
+      });
 
       return this;
     }
@@ -760,9 +787,18 @@ var HrStateWrapper = function () {
   }, {
     key: 'setLoadingDone',
     value: function setLoadingDone() {
-      var desc = { hasError: false, loading: false, loadingCompleteTime: this.path.info.time };
-
-      this._pushOp('mergeDesc', desc);
+      this._pushOp('updateInDesc', {
+        path: ['hasError'],
+        value: false
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loading'],
+        value: false
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loadingCompleteTime'],
+        value: this.path.info.time
+      });
 
       return this;
     }
@@ -777,14 +813,22 @@ var HrStateWrapper = function () {
   }, {
     key: 'setError',
     value: function setError(error) {
-      var desc = {
-        hasError: error != null,
-        error: error,
-        loading: false,
-        loadingCompleteTime: this.path.info.time
-      };
-
-      this._pushOp('mergeDesc', desc);
+      this._pushOp('updateInDesc', {
+        path: ['hasError'],
+        value: error != null
+      });
+      this._pushOp('updateInDesc', {
+        path: ['error'],
+        value: error
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loading'],
+        value: false
+      });
+      this._pushOp('updateInDesc', {
+        path: ['loadingCompleteTime'],
+        value: this.path.info.time
+      });
 
       return this;
     }
@@ -799,7 +843,145 @@ var HrStateWrapper = function () {
   }, {
     key: 'setMeta',
     value: function setMeta(metaKey, metaValue) {
-      this._pushOp('setInDesc', { path: ['etc', metaKey], value: metaValue });
+      this._pushOp('updateInDesc', { path: ['etc', metaKey], value: metaValue });
+
+      return this;
+    }
+
+    /*
+      Push an item to the list.
+       Throws if not in list mode.
+    */
+
+  }, {
+    key: 'push',
+    value: function push() {
+      for (var _len = arguments.length, items = Array(_len), _key2 = 0; _key2 < _len; _key2++) {
+        items[_key2] = arguments[_key2];
+      }
+
+      if (this.path.type !== 'list') {
+        throw new Error('Attempted to push while in ' + (this.path.type || '(none)') + ' mode.');
+      }
+      this._pushOp('listOp', { items: items, listOp: 'push' });
+      return this;
+    }
+
+    /*
+      Adds an item to the start of the list.
+       Throws if not in list mode.
+    */
+
+  }, {
+    key: 'unshift',
+    value: function unshift() {
+      for (var _len2 = arguments.length, items = Array(_len2), _key3 = 0; _key3 < _len2; _key3++) {
+        items[_key3] = arguments[_key3];
+      }
+
+      if (this.path.type !== 'list') {
+        throw new Error('Attempted to push while in ' + (this.path.type || '(none)') + ' mode.');
+      }
+      this._pushOp('listOp', { items: items, listOp: 'unshift' });
+
+      return this;
+    }
+
+    /*
+      Removes items from the end of the list. The count defaults to 1.
+       Throws if not in list mode.
+    */
+
+  }, {
+    key: 'pop',
+    value: function pop() {
+      var count = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 1;
+
+      if (this.path.type !== 'list') {
+        throw new Error('Attempted to push while in ' + (this.path.type || '(none)') + ' mode.');
+      }
+      this._pushOp('listOp', { count: count, listOp: 'pop' });
+
+      return this;
+    }
+
+    /*
+      Removes items from the start of the list. The count defaults to 1.
+       Throws if not in list mode.
+    */
+
+  }, {
+    key: 'shift',
+    value: function shift() {
+      var count = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 1;
+
+      if (this.path.type !== 'list') {
+        throw new Error('Attempted to push while in ' + (this.path.type || '(none)') + ' mode.');
+      }
+      this._pushOp('listOp', { count: count, listOp: 'shift' });
+
+      return this;
+    }
+
+    /*
+      Set this operation to be optimistic, which can be rolled back on future
+      state wrappers.
+       ```javascript
+      s.optimistic('token').id('some-id').set(value);
+       // in the future
+      s.optimistic('token').rollback()
+      ```
+    */
+
+  }, {
+    key: 'optimistic',
+    value: function optimistic(id) {
+      var id2 = id || '[[default]]';
+
+      var path = makePath(this.path.info, this);
+      path.optimisticId = id2;
+      return new HrStateWrapper(path);
+    }
+
+    /*
+      Clear optimistic updates for the given key. Usually good to do this when
+      your operation succeeds.
+    */
+
+  }, {
+    key: 'clearOptimistic',
+    value: function clearOptimistic(id) {
+      var id2 = id || '[[default]]';
+
+      this._pushOp('clearOptimistic', id2);
+
+      return this;
+    }
+
+    /*
+      Rolls back a previous optimistic update.
+       ```javascript
+      s.optimistic('token').rollback()
+      ```
+    */
+
+  }, {
+    key: 'rollback',
+    value: function rollback() {
+      var _path$info$ops;
+
+      var id = this.path.optimisticId;
+
+      if (!id) {
+        throw new Error('You must call .optimistic before you can rollback an update.');
+      }
+
+      var ops = this.path.info.state.rollbackOps[id];
+      if (!ops) {
+        throw new Error('Attempted to rollback optimistic update "' + id + '" which doesn\'t exist.');
+      }
+
+      (_path$info$ops = this.path.info.ops).push.apply(_path$info$ops, _toConsumableArray(ops));
 
       return this;
     }
@@ -824,124 +1006,396 @@ var HrStateWrapper = function () {
 
       // Track which things we've cloned to improve performance, and avoid
       // cloning objects that don't need to be cloned.
-      var cloned = { id: false, list: false, kv: false };
+      var cloned = { id: false, list: false, kv: false, rollbackOps: false };
       var clonedKey = {
         id: Object.create(null),
         list: Object.create(null),
         kv: Object.create(null)
       };
 
+      var updatedRollbacks = {};
+      var addRollback = function addRollback(id, op) {
+        if (!cloned.rollbackOps) {
+          cloned.rollbackOps = true;
+          state.rollbackOps = _extends({}, state.rollbackOps);
+        }
+
+        if (!updatedRollbacks[id]) {
+          state.rollbackOps[id] = [];
+          updatedRollbacks[id] = true;
+        }
+
+        op.optimisticId = null;
+
+        state.rollbackOps[id].push(op);
+      };
+
       for (var i = 0; i < ops.length; i += 1) {
-        var _op = ops[i];
+        var op = ops[i];
 
-        var _key2 = t.getKey(_op.key);
+        var _key4 = t.getKey(op.key);
 
-        if (_op.type === 'id' || _op.type === 'kv') {
-          var stateKey = _op.type === 'id' ? 'byId' : 'kv';
-          if (!cloned[_op.type]) {
-            cloned[_op.type] = true;
-            state[stateKey] = _extends({}, state.byId);
+        if (op.op === 'clearOptimistic') {
+          cloned.rollbackOps = true;
+          state.rollbackOps = _extends({}, state.rollbackOps);
+          delete state.rollbackOps[op.data];
+        }
+
+        if (op.type === 'id' || op.type === 'kv') {
+          var stateKey = op.type === 'id' ? 'byId' : 'kv';
+          if (!cloned[op.type]) {
+            cloned[op.type] = true;
+            state[stateKey] = _extends({}, state[stateKey]);
           }
 
-          if (!clonedKey[_op.type][_key2]) {
-            clonedKey[_op.type][_key2] = true;
-            state[stateKey][_key2] = _extends({}, state[stateKey][_key2]);
+          if (!clonedKey[op.type][_key4]) {
+            clonedKey[op.type][_key4] = true;
+            state[stateKey][_key4] = _extends({}, state[stateKey][_key4]);
           }
 
-          if (_op.op === 'set') {
+          if (op.op === 'set') {
             var opts = {};
             opts.loadingCompleteTime = this.path.info.time;
             // $FlowFixMe
-            if (state[stateKey][_key2][_op.typeValue]) {
-              opts.loadingStartTime = state[stateKey][_key2][_op.typeValue].loadingStartTime;
+            if (state[stateKey][_key4][op.typeValue]) {
+              opts.loadingStartTime = state[stateKey][_key4][op.typeValue].loadingStartTime;
+            }
+
+            if (op.optimisticId) {
+              addRollback(op.optimisticId, _extends({}, op, {
+                // $FlowFixMe
+                data: state[stateKey][_key4][op.typeValue] !== undefined ? state[stateKey][_key4][op.typeValue].value : undefined
+              }));
             }
 
             // $FlowFixMe
-            state[stateKey][_key2][_op.typeValue] = makeHrStateDesc(_op.data, opts);
+            state[stateKey][_key4][op.typeValue] = makeHrStateDesc(op.data, opts);
           }
 
-          if (_op.op === 'updateValue') {
+          if (op.op === 'setIds') {
+            var _optimisticId = op.optimisticId;
+
+            var newDescs = [];
+
+            for (var _i = 0; _i < op.data.length; _i += 1) {
+              var pair = op.data[_i];
+              newDescs.push(makeHrStateDesc(pair[1]));
+            }
+
+            if (_optimisticId) {
+              var newDescsMapping = {};
+              var oldDescPairs = [];
+              var oldDescNotExist = [];
+              for (var _i2 = 0; _i2 < op.data.length; _i2 += 1) {
+                var _pair = op.data[_i2];
+                var curr = state[stateKey][_key4][_pair[0]];
+                newDescsMapping[_pair[0]] = newDescs[_i2];
+                if (curr) {
+                  var oldValue = state[stateKey][_key4][_pair[0]];
+                  oldDescPairs.push([_pair[0], oldValue]);
+                } else {
+                  oldDescNotExist.push(_pair[0]);
+                }
+              }
+
+              var _iteratorNormalCompletion = true;
+              var _didIteratorError = false;
+              var _iteratorError = undefined;
+
+              try {
+                for (var _iterator = oldDescPairs[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                  var _pair2 = _step.value;
+
+                  addRollback(_optimisticId, _extends({}, op, {
+                    type: 'id',
+                    typeValue: _pair2[0],
+                    op: 'updateInDesc',
+                    data: {
+                      path: [],
+                      value: _pair2[1]
+                    }
+                  }));
+                }
+              } catch (err) {
+                _didIteratorError = true;
+                _iteratorError = err;
+              } finally {
+                try {
+                  if (!_iteratorNormalCompletion && _iterator.return) {
+                    _iterator.return();
+                  }
+                } finally {
+                  if (_didIteratorError) {
+                    throw _iteratorError;
+                  }
+                }
+              }
+
+              var _iteratorNormalCompletion2 = true;
+              var _didIteratorError2 = false;
+              var _iteratorError2 = undefined;
+
+              try {
+                for (var _iterator2 = oldDescNotExist[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                  var id = _step2.value;
+
+                  addRollback(_optimisticId, _extends({}, op, {
+                    type: 'id',
+                    typeValue: id,
+                    op: 'deleteDesc',
+                    data: {}
+                  }));
+                }
+              } catch (err) {
+                _didIteratorError2 = true;
+                _iteratorError2 = err;
+              } finally {
+                try {
+                  if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                    _iterator2.return();
+                  }
+                } finally {
+                  if (_didIteratorError2) {
+                    throw _iteratorError2;
+                  }
+                }
+              }
+            }
+
+            for (var _i3 = 0; _i3 < op.data.length; _i3 += 1) {
+              var _pair3 = op.data[_i3];
+              state[stateKey][_key4][_pair3[0]] = newDescs[_i3];
+            }
+          }
+
+          if (op.op === 'deleteDesc') {
+            var _optimisticId2 = op.optimisticId;
+
             // $FlowFixMe
-            var currentDesc = state[stateKey][_key2][_op.typeValue];
-            if (currentDesc) {
-              var current = currentDesc.value;
-              var updateData = _op.data(current);
-              if (updateData != null) {
-                var value = _extends({}, current, updateData);
-                // $FlowFixMe
-                state[stateKey][_key2][_op.typeValue] = _extends({}, currentDesc, { value: value });
+
+            var current = state[stateKey][_key4][op.typeValue];
+
+            if (current) {
+              // $FlowFixMe
+              delete state[stateKey][_key4][op.typeValue];
+
+              if (_optimisticId2) {
+                addRollback(_optimisticId2, _extends({}, op, {
+                  op: 'updateInDesc',
+                  data: {
+                    path: ['value'],
+                    data: current
+                  }
+                }));
               }
             }
           }
 
-          if (_op.op === 'setIds') {
-            for (var _i = 0; _i < _op.data.length; _i += 1) {
-              var pair = _op.data[_i];
-              state[stateKey][_key2][pair[0]] = makeHrStateDesc(pair[1]);
-            }
-          }
-
-          if (_op.op === 'mergeDesc') {
-            // $FlowFixMe
-            var desc = state[stateKey][_key2][_op.typeValue] ? _extends({}, state[stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
-            Object.assign(desc, _op.data);
-            // $FlowFixMe
-            state[stateKey][_key2][_op.typeValue] = desc;
-          }
-
-          if (_op.op === 'setInDesc') {
+          if (op.op === 'updateInDesc') {
             (function () {
               // $FlowFixMe
-              var desc = state[stateKey][_key2][_op.typeValue] ? _extends({}, state[stateKey][_key2][_op.typeValue]) : makeHrStateDesc(null);
+              var desc = state[stateKey][_key4][op.typeValue] ? _extends({}, state[stateKey][_key4][op.typeValue]) : makeHrStateDesc(null);
 
-              var final = _op.data.path.slice(0, -1).reduce(function (acc, k) {
+              var opPath = [].concat(_toConsumableArray(op.data.path));
+              var final = opPath.slice(0, -1).reduce(function (acc, k) {
                 desc[k] = _extends({}, desc[k]);
                 return desc[k];
               }, desc);
-              final[_op.data.path[_op.data.path.length - 1]] = _op.data.value;
 
-              // $FlowFixMe
-              state[stateKey][_key2][_op.typeValue] = desc;
+              // Apply the updater function to the new value
+              var prop = opPath[opPath.length - 1];
+
+              var updateValue = op.data.updater ? op.data.updater(prop ? final[prop] : final) : op.data.value;
+              var newValue = updateValue;
+              var changed = null;
+
+              var optimisticId = op.optimisticId;
+
+              // If it's a non-array object, then merge it into the previous value
+
+              if (newValue && (typeof newValue === 'undefined' ? 'undefined' : _typeof(newValue)) === 'object' && !Array.isArray(newValue)) {
+                newValue = _extends({}, final[prop], newValue);
+
+                if (optimisticId) {
+                  // $FlowFixMe
+                  if (state[stateKey][_key4][op.typeValue]) {
+                    var _changed = Object.keys(updateValue);
+                    var original = _changed.reduce(function (acc, key) {
+                      if (final[prop]) {
+                        acc[key] = final[prop][key];
+                      } else {
+                        acc[key] = undefined;
+                      }
+                      return acc;
+                    }, {});
+
+                    addRollback(optimisticId, _extends({}, op, {
+                      data: {
+                        path: op.data.path,
+                        value: original
+                      }
+                    }));
+                  } else {
+                    addRollback(optimisticId, _extends({}, op, {
+                      op: 'deleteDesc',
+                      data: null
+                    }));
+                  }
+                }
+
+                if (prop) {
+                  final[prop] = newValue;
+                } else {
+                  final = newValue;
+                }
+              } else {
+                if (optimisticId) {
+                  addRollback(optimisticId, _extends({}, op, {
+                    data: {
+                      path: op.data.path,
+                      value: prop ? final[prop] : final
+                    }
+                  }));
+                }
+              }
+
+              if (!prop) {
+                // $FlowFixMe
+                state[stateKey][_key4][op.typeValue] = final;
+              } else {
+                final[prop] = newValue;
+                // $FlowFixMe
+                state[stateKey][_key4][op.typeValue] = desc;
+              }
             })();
           }
         }
 
-        if (_op.type === 'list') {
+        if (op.type === 'list') {
           if (!cloned.list) {
             cloned.list = true;
             state.lists = _extends({}, state.lists);
           }
 
-          if (_op.op === 'set') {
-            var _opts = {};
-            _opts.loadingCompleteTime = this.path.info.time;
-            // $FlowFixMe
-            if (state.lists[_key2]) {
-              _opts.loadingStartTime = state.lists[_key2].loadingStartTime;
-            }
-            // $FlowFixMe
-            state.lists[_key2] = makeHrStateDesc(_op.data, _opts);
-          }
-
-          if (_op.op === 'mergeDesc') {
-            var _desc = state.lists[_key2] ? _extends({}, state.lists[_key2]) : makeHrStateDesc(null);
-            Object.assign(_desc, _op.data);
-            // $FlowFixMe
-            state.lists[_key2] = _desc;
-          }
-
-          if (_op.op === 'setInDesc') {
+          if (op.op === 'updateInDesc') {
             (function () {
-              var desc = state.lists[_key2] ? _extends({}, state.lists[_key2]) : makeHrStateDesc(null);
+              var desc = state.lists[_key4] ? _extends({}, state.lists[_key4]) : makeHrStateDesc(null);
 
-              var final = _op.data.path.slice(0, -1).reduce(function (acc, k) {
+              var opPath = [].concat(_toConsumableArray(op.data.path));
+
+              var final = opPath.slice(0, -1).reduce(function (acc, k) {
                 desc[k] = _extends({}, desc[k]);
                 return desc[k];
               }, desc);
-              final[_op.data.path[_op.data.path.length - 1]] = _op.data.value;
+
+              // Apply the updater function to the new value
+              var prop = opPath[opPath.length - 1];
+
+              var updateValue = op.data.updater ? op.data.updater(prop ? final[prop] : final) : op.data.value;
+              var newValue = updateValue;
+
+              var optimisticId = op.optimisticId;
+
+
+              if (optimisticId) {
+                addRollback(optimisticId, _extends({}, op, {
+                  data: {
+                    path: op.data.path,
+                    value: prop ? final[prop] : final
+                  }
+                }));
+              }
+
+              if (prop) {
+                final[prop] = newValue;
+              } else {
+                final = newValue;
+              }
 
               // $FlowFixMe
-              state.lists[_key2] = desc;
+              state.lists[_key4] = desc;
+            })();
+          }
+
+          if (op.op === 'listOp') {
+            (function () {
+              var optimisticId = op.optimisticId;
+              var _op$data = op.data,
+                  listOp = _op$data.listOp,
+                  count = _op$data.count,
+                  items = _op$data.items;
+
+              var desc = state.lists[_key4] ? _extends({}, state.lists[_key4]) : makeHrStateDesc([]);
+
+              if (listOp === 'push') {
+                desc.value = desc.value.concat(items);
+                state.lists[_key4] = desc;
+
+                if (optimisticId) {
+                  addRollback(optimisticId, _extends({}, op, {
+                    op: 'listOp',
+                    data: {
+                      listOp: 'removeItems',
+                      items: items
+                    }
+                  }));
+                }
+              }
+              if (listOp === 'unshift') {
+                desc.value = items.concat(desc.value);
+                state.lists[_key4] = desc;
+
+                if (optimisticId) {
+                  addRollback(optimisticId, _extends({}, op, {
+                    op: 'listOp',
+                    data: {
+                      listOp: 'removeItems',
+                      items: items
+                    }
+                  }));
+                }
+              }
+              if (listOp === 'pop') {
+                var _current = desc.value || [];
+
+                var removed = _current.slice(-1 * count);
+                desc.value = _current.slice(0, -1 * count);
+                state.lists[_key4] = desc;
+
+                if (optimisticId) {
+                  addRollback(optimisticId, _extends({}, op, {
+                    op: 'listOp',
+                    data: {
+                      listOp: 'push',
+                      items: removed
+                    }
+                  }));
+                }
+              }
+
+              if (listOp === 'shift') {
+                var _current2 = desc.value || [];
+
+                var _removed = _current2.slice(0, count);
+                desc.value = _current2.slice(count);
+                state.lists[_key4] = desc;
+
+                if (optimisticId) {
+                  addRollback(optimisticId, _extends({}, op, {
+                    op: 'listOp',
+                    data: {
+                      listOp: 'unshift',
+                      items: _removed
+                    }
+                  }));
+                }
+              }
+              if (listOp === 'removeItems') {
+                desc.value = desc.value.filter(function (x) {
+                  return items.indexOf(x) === -1;
+                });
+                state.lists[_key4] = desc;
+              }
             })();
           }
         }
@@ -979,7 +1433,8 @@ var HrStateWrapper = function () {
         key: this.path.key,
         type: this.path.type,
         typeValue: this.path.typeValue,
-        data: data
+        data: data,
+        optimisticId: this.path.optimisticId
       }, overrides));
     }
   }]);

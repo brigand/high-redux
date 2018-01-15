@@ -137,6 +137,14 @@ Update an item with the given id by passing it to the 'updater' function.
 
 
 
+### `HrStateWrapper::updateIn`
+
+Signature: `.updateIn(updatePath: Array<string | number>, updater: Function)`
+
+Update an item with the given id by passing it to the 'updater' function.
+
+
+
 ### `HrStateWrapper::setLoading`
 
 Signature: `.setLoading()`
@@ -185,6 +193,83 @@ s.id('some-id').setMeta('isNew', true)
 
 
 
+### `HrStateWrapper::push`
+
+Signature: `.push(...items: Array<any>)`
+
+Push an item to the list.
+
+Throws if not in list mode.
+
+
+
+### `HrStateWrapper::unshift`
+
+Signature: `.unshift(...items: Array<any>)`
+
+Adds an item to the start of the list.
+
+Throws if not in list mode.
+
+
+
+### `HrStateWrapper::pop`
+
+Signature: `.pop(count: number = 1)`
+
+Removes items from the end of the list. The count defaults to 1.
+
+Throws if not in list mode.
+
+
+
+### `HrStateWrapper::shift`
+
+Signature: `.shift(count: number = 1)`
+
+Removes items from the start of the list. The count defaults to 1.
+
+Throws if not in list mode.
+
+
+
+### `HrStateWrapper::optimistic`
+
+Signature: `.optimistic(id: ?string)`
+
+Set this operation to be optimistic, which can be rolled back on future
+state wrappers.
+
+```javascript
+s.optimistic('token').id('some-id').set(value);
+
+// in the future
+s.optimistic('token').rollback()
+```
+
+
+
+### `HrStateWrapper::clearOptimistic`
+
+Signature: `.clearOptimistic(id: ?string)`
+
+Clear optimistic updates for the given key. Usually good to do this when
+your operation succeeds.
+
+
+
+### `HrStateWrapper::rollback`
+
+Signature: `.rollback()`
+
+Rolls back a previous optimistic update.
+
+```javascript
+s.optimistic('token').rollback()
+```
+
+
+
 ### `HrStateWrapper::getState`
 
 Signature: `.getState()`
@@ -203,7 +288,7 @@ Get the root `HrStateWrapper` instance.
 
 ### `HrStateWrapper::_pushOp`
 
-Signature: `._pushOp(op: OpType, data: any, overrides: $Shape<HrStateWrapperOp> = {})`
+Signature: `._pushOp(op: t.OpType, data: any, overrides: $Shape<t.HrStateWrapperOp> = {})`
 
 Internal: adds an operation to the queue
 

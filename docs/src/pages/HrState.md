@@ -39,8 +39,7 @@ export type HrState = {
   byId: HrStateById,
   lists: HrStateList,
   kv: HrStateKv,
-  // TODO: implement this in some way
-  // receipts: { [key: string]: any },
+  rollbackOps: RollbackOps,
 }
 ```
 
@@ -119,7 +118,8 @@ print(state);
   "isHrState": true,
   "byId": {},
   "lists": {},
-  "kv": {}
+  "kv": {},
+  "rollbackOps": {}
 }
 ```
 
@@ -161,13 +161,14 @@ print(state);
           "name": "John"
         },
         "loadingStartTime": 0,
-        "loadingCompleteTime": 1515403208634,
+        "loadingCompleteTime": 0,
         "etc": {}
       }
     }
   },
   "lists": {},
-  "kv": {}
+  "kv": {},
+  "rollbackOps": {}
 }
 ```
 
@@ -206,14 +207,15 @@ print(state);
         "hasError": false,
         "error": null,
         "value": null,
-        "loadingStartTime": 1515403208638,
+        "loadingStartTime": 1516012256897,
         "loadingCompleteTime": 0,
         "etc": {}
       }
     }
   },
   "lists": {},
-  "kv": {}
+  "kv": {},
+  "rollbackOps": {}
 }
 ```
 
@@ -258,11 +260,12 @@ print(state);
         "c"
       ],
       "loadingStartTime": 0,
-      "loadingCompleteTime": 1515403208639,
+      "loadingCompleteTime": 0,
       "etc": {}
     }
   },
-  "kv": {}
+  "kv": {},
+  "rollbackOps": {}
 }
 ```
 
@@ -305,11 +308,12 @@ print(state);
         "c"
       ],
       "loadingStartTime": 0,
-      "loadingCompleteTime": 1515403208640,
+      "loadingCompleteTime": 0,
       "etc": {}
     }
   },
-  "kv": {}
+  "kv": {},
+  "rollbackOps": {}
 }
 ```
 
