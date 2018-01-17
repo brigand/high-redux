@@ -41,18 +41,10 @@
     "typography-theme-wordpress-2016": "^0.15.10"
   },
   "devDependencies": {
-    "babel-core": "^6.26.0",
-    "babel-preset-latest": "^6.24.1",
-    "babel-preset-react": "^6.24.1",
-    "babel-traverse": "^6.26.0",
-    "babylon": "^6.18.0",
     "eslint": "^4.13.1",
     "eslint-plugin-react": "^7.5.1",
     "gatsby-remark-autolink-headers": "^1.4.11",
     "gh-pages": "^1.1.0",
-    "gray-matter": "^3.1.1",
-    "htmlparser2": "^3.9.2",
-    "jest": "^22.1.2",
     "prettier": "^1.9.2"
   },
   "homepage": "https://github.com/gatsbyjs/gatsby-starter-blog#readme",

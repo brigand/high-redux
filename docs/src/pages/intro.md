@@ -16,12 +16,6 @@ tags:
 
 ## What is High Redux?
 
-<!--
-<Helmet
-  title={`${data.frontmatter.title} - ${data.site.siteMetadata.title}`}
-/>
--->
-
 high-redux is a set of two primary abstractions for improving your react/redux app.
 You can use either part on their own, or for best results, use them together.
 You **don't** need to rewrite your existing code. It's fully compatible with

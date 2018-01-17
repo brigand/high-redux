@@ -2,7 +2,6 @@ const _ = require('lodash')
 const Promise = require('bluebird')
 const path = require('path')
 const { createFilePath } = require('gatsby-source-filesystem')
-const getCdResolve = require('./src/componentdown/getCdResolve');
 
 exports.createPages = ({ graphql, boundActionCreators }) => {
   const { createPage } = boundActionCreators
@@ -16,37 +15,25 @@ exports.createPages = ({ graphql, boundActionCreators }) => {
             allMarkdownRemark(limit: 1000) {
               edges {
                 node {
-                  html
-                  fileAbsolutePath
                   fields {
                     slug
                   }
                 }
               }
             }
-            site {
-              siteMetadata {
-                title
-              }
-            }
           }
         `
       ).then(result => {
         if (result.errors) {
-          console.log(result.errors);
-          reject(result.errors);
-          return;
+          console.log(result.errors)
+          reject(result.errors)
         }
 
         // Create blog posts pages.
         _.each(result.data.allMarkdownRemark.edges, edge => {
-          if (!/intro.md/.test(edge.node.fileAbsolutePath)) return;
           createPage({
             path: edge.node.fields.slug,
-            component: getCdResolve(blogPost, edge.node.fileAbsolutePath, {
-              html: edge.node.html,
-              site: result.data.site,
-            }),
+            component: blogPost,
             context: {
               slug: edge.node.fields.slug,
             },
