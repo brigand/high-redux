@@ -1,5 +1,13 @@
 {
   "assetsByChunkName": {
+    "path---high-redix-hr-query": [
+      "path---high-redix-hr-query-48f5f5c566e4eb8fcf35.js",
+      "path---high-redix-hr-query-48f5f5c566e4eb8fcf35.js.map"
+    ],
+    "path---high-redix-with-props": [
+      "path---high-redix-with-props-2411dcf4f49f33248c2c.js",
+      "path---high-redix-with-props-2411dcf4f49f33248c2c.js.map"
+    ],
     "component---src-pages-index-js": [
       "component---src-pages-index-js-6fa97f7c846b8c2c7bdf.js",
       "component---src-pages-index-js-6fa97f7c846b8c2c7bdf.js.map"
@@ -7,10 +15,6 @@
     "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-a-8-a-82702-a-3663774-fa-9-dcc-7-d-3-b-8-ce-587-aee-05-a-15-users-fb-github-brigand-high-redux-docs-src-pages-hr-state-wrapper-md": [
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-a-8-a-82702-a-3663774-fa-9-dcc-7-d-3-b-8-ce-587-aee-05-a-15-users-fb-github-brigand-high-redux-docs-src-pages-hr-state-wrapper-md-3e1446eb4a67ecd8389c.js",
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-a-8-a-82702-a-3663774-fa-9-dcc-7-d-3-b-8-ce-587-aee-05-a-15-users-fb-github-brigand-high-redux-docs-src-pages-hr-state-wrapper-md-3e1446eb4a67ecd8389c.js.map"
-    ],
-    "path---make-hr": [
-      "path---make-hr-b137ed47d6fff3575182.js",
-      "path---make-hr-b137ed47d6fff3575182.js.map"
     ],
     "path---": [
       "path----39d69710580a9d83c640.js",
@@ -33,8 +37,16 @@
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-772-b-2-e-1-ab-4-f-5-f-20-bf-33335-cc-28868-ef-2-dba-710-b-0-users-fb-github-brigand-high-redux-docs-src-pages-hr-state-md-b8375fb98461725f38b5.js.map"
     ],
     "path---index": [
-      "path---index-89e3f291ed3189fdb350.js",
-      "path---index-89e3f291ed3189fdb350.js.map"
+      "path---index-bc8a1dfa0d800948c2f4.js",
+      "path---index-bc8a1dfa0d800948c2f4.js.map"
+    ],
+    "path---high-redix-hr-state-wrapper": [
+      "path---high-redix-hr-state-wrapper-a0d841700ad3a68fa799.js",
+      "path---high-redix-hr-state-wrapper-a0d841700ad3a68fa799.js.map"
+    ],
+    "path---high-redix-intro": [
+      "path---high-redix-intro-c98a71b1b2c13d1e7f2a.js",
+      "path---high-redix-intro-c98a71b1b2c13d1e7f2a.js.map"
     ],
     "commons": [
       "commons-64f3acd0e727f06437fd.js",
@@ -44,39 +56,27 @@
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-dab-98-b-0-b-31307-e-5-b-2-fd-4-b-5-af-1-bd-184-a-27802222-f-users-fb-github-brigand-high-redux-docs-src-pages-with-props-md-856c5a40baa303f7d9fb.js",
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-dab-98-b-0-b-31307-e-5-b-2-fd-4-b-5-af-1-bd-184-a-27802222-f-users-fb-github-brigand-high-redux-docs-src-pages-with-props-md-856c5a40baa303f7d9fb.js.map"
     ],
-    "path---hr-query": [
-      "path---hr-query-48f5f5c566e4eb8fcf35.js",
-      "path---hr-query-48f5f5c566e4eb8fcf35.js.map"
-    ],
     "path---offline-plugin-app-shell-fallback": [
       "path---offline-plugin-app-shell-fallback-a0e39f21c11f6a62c5ab.js",
       "path---offline-plugin-app-shell-fallback-a0e39f21c11f6a62c5ab.js.map"
     ],
-    "path---with-props": [
-      "path---with-props-2411dcf4f49f33248c2c.js",
-      "path---with-props-2411dcf4f49f33248c2c.js.map"
+    "path---high-redix-make-hr": [
+      "path---high-redix-make-hr-b137ed47d6fff3575182.js",
+      "path---high-redix-make-hr-b137ed47d6fff3575182.js.map"
+    ],
+    "path---high-redix-hr-state": [
+      "path---high-redix-hr-state-fe728953070b593ec28c.js",
+      "path---high-redix-hr-state-fe728953070b593ec28c.js.map"
     ],
     "app": [
-      "app-206acb33b8a27db040a8.js",
+      "app-fc8791ce2fd05cd50fcc.js",
       "build-js-styles.css",
-      "app-206acb33b8a27db040a8.js.map",
+      "app-fc8791ce2fd05cd50fcc.js.map",
       "build-js-styles.css.map"
-    ],
-    "path---hr-state": [
-      "path---hr-state-fe728953070b593ec28c.js",
-      "path---hr-state-fe728953070b593ec28c.js.map"
-    ],
-    "path---hr-state-wrapper": [
-      "path---hr-state-wrapper-a0d841700ad3a68fa799.js",
-      "path---hr-state-wrapper-a0d841700ad3a68fa799.js.map"
     ],
     "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-e-37-c-95-bf-06-e-48-df-24310-a-08-cb-3-e-795-f-8-f-68-a-6-e-2-c-users-fb-github-brigand-high-redux-docs-src-pages-hr-query-md": [
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-e-37-c-95-bf-06-e-48-df-24310-a-08-cb-3-e-795-f-8-f-68-a-6-e-2-c-users-fb-github-brigand-high-redux-docs-src-pages-hr-query-md-e3996101bd1873d2c0e7.js",
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-e-37-c-95-bf-06-e-48-df-24310-a-08-cb-3-e-795-f-8-f-68-a-6-e-2-c-users-fb-github-brigand-high-redux-docs-src-pages-hr-query-md-e3996101bd1873d2c0e7.js.map"
-    ],
-    "path---intro": [
-      "path---intro-c98a71b1b2c13d1e7f2a.js",
-      "path---intro-c98a71b1b2c13d1e7f2a.js.map"
     ],
     "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-6-d-6968-e-7-ab-1153378639-cd-2-bf-6-b-77-ec-10-c-4-eea-17-users-fb-github-brigand-high-redux-docs-src-pages-make-hr-md": [
       "component---users-fb-github-brigand-high-redux-docs-src-componentdown-cd-loader-js-users-fb-github-brigand-high-redux-docs-src-templates-blog-post-js-6-d-6968-e-7-ab-1153378639-cd-2-bf-6-b-77-ec-10-c-4-eea-17-users-fb-github-brigand-high-redux-docs-src-pages-make-hr-md-13f34f322a3070aa58e6.js",
