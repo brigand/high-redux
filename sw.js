@@ -37,7 +37,7 @@
 /* eslint-disable indent, no-unused-vars, no-multiple-empty-lines, max-nested-callbacks, space-before-function-paren, quotes, comma-spacing */
 'use strict';
 
-var precacheConfig = [["/high-redux/app-2df7cc19f548686f8bd9.js","4505ba2667a215bb36b9257fe42c4a65"],["/high-redux/app-7d5da547db17f89fb2bb.js","921e993b917d561584743688165e7469"],["/high-redux/app-f7a29b5defb4ec8120ad.js","5f72e37c198aaabd72dd2ad70b59a064"],["/high-redux/commons-3f8cdb987559d31a3a4e.js","dee41c978604596b7889a0f00db17227"],["/high-redux/index.html","85167312f4c7e631ab65e16b848fa00f"],["/high-redux/offline-plugin-app-shell-fallback/index.html","a52f9bd0d58224453e53a5bfdbde97ce"]];
+var precacheConfig = [["/high-redux/app-2df7cc19f548686f8bd9.js","4505ba2667a215bb36b9257fe42c4a65"],["/high-redux/app-5d60c53241ab8ba07216.js","71a3e17a5a918fdc1e4e070b612da55e"],["/high-redux/app-7d5da547db17f89fb2bb.js","921e993b917d561584743688165e7469"],["/high-redux/app-f7a29b5defb4ec8120ad.js","5f72e37c198aaabd72dd2ad70b59a064"],["/high-redux/commons-3f8cdb987559d31a3a4e.js","6980fa89d22df1dbf926f5e4e4dc31c5"],["/high-redux/index.html","7a0cbebc1588378af352c2446850c4b5"],["/high-redux/offline-plugin-app-shell-fallback/index.html","418a8b16408fb5c3927ace85c018fea4"]];
 var cacheName = 'sw-precache-v3-gatsby-plugin-offline-' + (self.registration ? self.registration.scope : '');
 
 
