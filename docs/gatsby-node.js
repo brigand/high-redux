@@ -40,7 +40,6 @@ exports.createPages = ({ graphql, boundActionCreators }) => {
 
         // Create blog posts pages.
         _.each(result.data.allMarkdownRemark.edges, edge => {
-          if (!/intro.md/.test(edge.node.fileAbsolutePath)) return;
           createPage({
             path: edge.node.fields.slug,
             component: getCdResolve(blogPost, edge.node.fileAbsolutePath, {
