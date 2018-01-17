@@ -66,7 +66,26 @@ const copyFromPath = (target, source, keys) => {
   return target;
 };
 
+const fixLinks = (html) => {
+  let rootPath = `/`;
+  let resHtml = html;
+  if (typeof __PREFIX_PATHS__ !== `undefined` && __PREFIX_PATHS__) {
+    rootPath = __PATH_PREFIX__ + `/`
+
+    resHtml = resHtml.replace(/(<a[^]*?href=")([^"]+)(")/g, (m, prefix, href, suffix) => {
+      let newHref = href;
+      if (href[0] === '/') {
+        newHref = rootPath + href.slice(1);
+      }
+
+      return prefix + newHref + suffix;
+    });
+  };
+  return resHtml;
+};
+
 module.exports = {
   getUndefAccess,
   copyFromPath,
+  fixLinks,
 };

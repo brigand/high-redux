@@ -11,20 +11,6 @@ class BlogPostTemplate extends React.Component {
     //
     // let html = post.html;
     //
-    // let rootPath = `/`
-    // if (typeof __PREFIX_PATHS__ !== `undefined` && __PREFIX_PATHS__) {
-    //   rootPath = __PATH_PREFIX__ + `/`
-    //
-    //   html = html.replace(/(<a[^]*?href=")([^"]+)(")/g, (m, prefix, href, suffix) => {
-    //     let newHref = href;
-    //     if (href[0] === '/') {
-    //       newHref = rootPath + href.slice(1);
-    //       console.log(newHref)
-    //     }
-    //
-    //     return prefix + newHref + suffix;
-    //   });
-    // }
 
     return (
       <div id="foo">

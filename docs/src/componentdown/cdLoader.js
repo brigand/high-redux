@@ -61,7 +61,7 @@ function cdLoader(content) {
   lines.push(`var h = h2`);
 
   const cleanHtml = (html) => {
-    return html
+    return utils.fixLinks(html)
       .replace(/<--/g, '')
       .replace(/-->/g, '')
       .trim();
