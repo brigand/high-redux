@@ -121,7 +121,7 @@ export class PropData {
       handler: (selfState, ownProps, dispatch) => {
         let shouldDispatch = false;
 
-        const currValues = propKeys.map(key => ownProps[key]);
+        const currValues = propKeys.map(key => typeof key === 'function' ? key(ownProps) : ownProps[key]);
 
         if (!selfState.prev) {
           shouldDispatch = true;
