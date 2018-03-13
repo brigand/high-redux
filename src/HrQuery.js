@@ -1,6 +1,7 @@
 // @flow
 'use strict';
 import * as t from './types';
+import { makeHrStateDesc } from './HrStateWrapper';
 
 type HrQueryPath = {
   key: ?string,
@@ -87,9 +88,9 @@ export default class HrQuery {
     ```
   */
   idProps(id: string, name: string = 'data') {
-    const desc = this.idDesc(id);
+    let desc = this.idDesc(id);
 
-    if (!desc) return {};
+    if (!desc) desc = makeHrStateDesc(null);
 
     const props = {
       [name]: desc.value,
@@ -107,7 +108,7 @@ export default class HrQuery {
     for cached selectors going from lists of ids to lists of values.
   */
   idsDescs() {
-    return this.st.byId[t.getKey(this.path.key)];
+    return this.st.byId[t.getKey(this.path.key)] || {};
   }
 
   /*
@@ -126,9 +127,9 @@ export default class HrQuery {
     of how this works.
   */
   listProps(name: string = 'items') {
-    const desc = this.listDesc();
+    let desc = this.listDesc();
 
-    if (!desc) return {};
+    if (!desc) desc = makeHrStateDesc([]);
 
     const props = {
       [name]: desc.value || [],
@@ -174,9 +175,9 @@ export default class HrQuery {
         throw new Error(`HrQuery::kvProps expected either the second argument to be provided, or for the first argument to be a valid identifier.`);
       }
     }
-    const desc = this.kvDesc(key);
+    let desc = this.kvDesc(key);
 
-    if (!desc) return {};
+    if (!desc) desc = makeHrStateDesc(null);
 
     const props = {
       [finalName]: desc.value,

@@ -2,6 +2,7 @@
 
 import { DO_SPREAD } from './internalUtils';
 import { createSelector } from 'reselect';
+import { wrapWholeStateInQueries } from './internalUtils';
 
 export class BaseStateOp {
   // The prop name hint. Most set a prop with this name.
@@ -68,7 +69,7 @@ export class SelectOp extends BaseStateOp {
     }
   }
 
-  _applyRes(resProps, data) {
+  _applyRes(resProps: Object, data: Object) {
     if (this.propName === DO_SPREAD) {
       Object.assign(resProps, data);
     } else {
