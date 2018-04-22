@@ -89,6 +89,16 @@ describe(`HrStateWrapper id`, () => {
     expect(state.byId[getKey()].idA.value).toBe('some-value');
   });
 
+  it(`id->transition 'value' func`, () => {
+    const s = wrapperFromState();
+
+    s.id('idA').transition('value', 'abc');
+    s.id('idA').transition('value', s => `${s}def`);
+
+    const state = s.getState();
+    expect(state.byId[getKey()].idA.value).toBe('abcdef');
+  });
+
   it(`alternate keys`, () => {
     const s = wrapperFromState();
     s.key('foo').id('id').set('valueA');

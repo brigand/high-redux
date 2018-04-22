@@ -215,6 +215,15 @@ export class HrStateWrapper {
     Convenience function to transition to loading/value/error states.
 
     It won't remove any existing value, but will clear loading/error states.
+
+    If the data is a function, then it'll be applied with the current value.
+
+    ```js
+    s.transition('loading')
+    s.transition('error', someError)
+    s.transition('value', someValue)
+    s.transition('value', x => x + 1)
+    ```
   */
   transition(newState: 'loading' | 'value' | 'error', data: any) {
     const desc: any = { loading: newState === 'loading', hasError: newState === 'error', error: newState === 'error' ? data : null};
@@ -602,7 +611,13 @@ export class HrStateWrapper {
         if (op.op === 'mergeDesc') {
           // $FlowFixMe
           const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
+          const currValue = desc.value;
           Object.assign(desc, op.data);
+
+          if (typeof desc.value === 'function') {
+            desc.value = desc.value(currValue);
+          }
+
           // $FlowFixMe
           state[stateKey][key][op.typeValue] = desc;
         }
@@ -734,7 +749,14 @@ export class HrStateWrapper {
 
         if (op.op === 'mergeDesc') {
           const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
+
+          const currValue = desc.value;
           Object.assign(desc, op.data);
+
+          if (typeof desc.value === 'function') {
+            desc.value = desc.value(currValue);
+          }
+
           // $FlowFixMe
           state.lists[key] = desc;
         }
