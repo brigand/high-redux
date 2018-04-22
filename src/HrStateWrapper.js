@@ -231,6 +231,8 @@ export class HrStateWrapper {
       desc.value = data;
     }
     this._pushOp('mergeDesc', desc);
+
+    return this;
   }
 
   /*
