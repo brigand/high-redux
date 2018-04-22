@@ -212,6 +212,19 @@ export class HrStateWrapper {
   }
 
   /*
+    Convenience function to transition to loading/value/error states.
+
+    It won't remove any existing value, but will clear loading/error states.
+  */
+  transition(newState: 'loading' | 'value' | 'error', data: any) {
+    const desc: any = { loading: newState === 'loading', hasError: newState === 'error', error: newState === 'error' ? data : null};
+    if (newState === 'value') {
+      desc.value = data;
+    }
+    this._pushOp('mergeDesc', desc);
+  }
+
+  /*
     Update an item with the given id by passing it to the 'updater' function.
   */
   update(updater: Function) {
@@ -586,6 +599,14 @@ export class HrStateWrapper {
           }
         }
 
+        if (op.op === 'mergeDesc') {
+          // $FlowFixMe
+          const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
+          Object.assign(desc, op.data);
+          // $FlowFixMe
+          state[stateKey][key][op.typeValue] = desc;
+        }
+
         if (op.op === 'updateInDesc') {
           // $FlowFixMe
           const desc = state[stateKey][key][op.typeValue] ? { ...state[stateKey][key][op.typeValue] } : makeHrStateDesc(null);
@@ -707,6 +728,13 @@ export class HrStateWrapper {
             final = newValue;
           }
 
+          // $FlowFixMe
+          state.lists[key] = desc;
+        }
+
+        if (op.op === 'mergeDesc') {
+          const desc = state.lists[key] ? { ...state.lists[key] } : makeHrStateDesc(null);
+          Object.assign(desc, op.data);
           // $FlowFixMe
           state.lists[key] = desc;
         }

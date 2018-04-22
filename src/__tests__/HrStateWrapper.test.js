@@ -53,6 +53,42 @@ describe(`HrStateWrapper id`, () => {
     expect(state.byId[getKey()].idB.error).toBe('another-error');
   });
 
+  it(`id->transition 'error'`, () => {
+    const s = wrapperFromState();
+
+    s.id('idA').set('valueA');
+    s.id('idA').transition('error', 'some-error');
+
+    const state = s.getState();
+    expect(state.byId[getKey()].idA.value).toBe('valueA');
+    expect(state.byId[getKey()].idA.hasError).toBe(true);
+    expect(state.byId[getKey()].idA.error).toBe('some-error');
+  });
+
+  it(`id->transition 'loading'`, () => {
+    const s = wrapperFromState();
+
+    s.id('idA').transition('loading');
+
+    const state = s.getState();
+    expect(state.byId[getKey()].idA.hasError).toBe(false);
+    expect(state.byId[getKey()].idA.error).toBe(null);
+    expect(state.byId[getKey()].idA.loading).toBe(true);
+  });
+
+  it(`id->transition 'value'`, () => {
+    const s = wrapperFromState();
+
+    s.id('idA').transition('loading');
+    s.id('idA').transition('value', 'some-value');
+
+    const state = s.getState();
+    expect(state.byId[getKey()].idA.hasError).toBe(false);
+    expect(state.byId[getKey()].idA.error).toBe(null);
+    expect(state.byId[getKey()].idA.loading).toBe(false);
+    expect(state.byId[getKey()].idA.value).toBe('some-value');
+  });
+
   it(`alternate keys`, () => {
     const s = wrapperFromState();
     s.key('foo').id('id').set('valueA');
