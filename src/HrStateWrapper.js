@@ -1,7 +1,9 @@
 // @flow
 'use strict';
+import get from 'lodash/get'
 import * as t from './types';
 import HrQuery from './HrQuery';
+
 
 // eslint-disable-next-line
 
@@ -202,12 +204,26 @@ export class HrStateWrapper {
     Often you'll generate this with an `array.map` call.
 
     ```javascript
-    s.setIdPairs(items.map(x => [x.id, x]))
-    s.key('some-key').setIdPairs(items.map(x => [x.id, x]))
+    s.setIds(items.map(x => [x.id, x]))
+    s.key('some-key').setIds(items.map(x => [x.id, x]))
     ```
   */
   setIds(pairs: Array<[string, any]>) {
     this._pushOp('setIds', pairs, { type: 'id' });
+    return this;
+  }
+
+  /*
+    Similar to `setIds`, except that if there's already a value for that
+    id, the object passed to mergeIds will be shallowly merged into it.
+
+    ```javascript
+    s.mergeIds(items.map(x => [x.id, x]))
+    s.key('some-key').mergeIds(items.map(x => [x.id, x]))
+    ```
+  */
+  mergeIds(pairs: Array<[string, any]>) {
+    this._pushOp('mergeIds', pairs, { type: 'id' });
     return this;
   }
 
@@ -531,14 +547,24 @@ export class HrStateWrapper {
           state[stateKey][key][op.typeValue] = makeHrStateDesc(op.data, opts);
         }
 
-        if (op.op === 'setIds') {
+        if (op.op === 'setIds' || op.op === 'mergeIds') {
           const optimisticId = op.optimisticId;
 
           const newDescs = [];
 
           for (let i = 0; i < op.data.length; i += 1) {
             const pair = op.data[i];
-            newDescs.push(makeHrStateDesc(pair[1]));
+            const newDesc = makeHrStateDesc(pair[1]);
+            if (op.op === 'mergeIds') {
+              const current = get(state, [stateKey, key, pair[0]]);
+              if (current && current.value) {
+                newDesc.value = {
+                  ...current.value,
+                  ...newDesc.value,
+                };
+              }
+            }
+            newDescs.push(newDesc);
           }
 
           if (optimisticId) {

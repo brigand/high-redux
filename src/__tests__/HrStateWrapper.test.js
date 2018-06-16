@@ -26,6 +26,19 @@ describe(`HrStateWrapper id`, () => {
     expect(state.byId[getKey()].idB.value).toBe('valueB');
   });
 
+  it(`mergeIds`, () => {
+    const s = wrapperFromState();
+    s.setIds([['idA', { initial: 'should exist', willOverride: 'should not exist'}]]);
+    s.mergeIds([['idA', { willOverride: 'should exist', added: 'should exist' }]])
+
+    const state = s.getState();
+    expect(state.byId[getKey()].idA.value).toEqual({
+      initial: 'should exist',
+      willOverride: 'should exist',
+      added: 'should exist',
+    });
+  });
+
   it(`id->set`, () => {
     const s = wrapperFromState();
     s.setIds([['idA', 'valueA'], ['idB', 'valueB']]);
